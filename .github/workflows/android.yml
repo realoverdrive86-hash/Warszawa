@@ -27,32 +27,13 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Initialize Capacitor Android
-      run: npx cap add android || npx cap sync android
+    - name: Initialize Android Project
+      run: npx cap add android
 
-    - name: Change App Name and ID
-      run: |
-        APP_NAME="Warszaw with kids"
-        NEW_ID="com.realoverdrive.warszawwithkids"
-        
-        # Безопасная замена имени приложения
-        if [ -f android/app/src/main/res/values/strings.xml ]; then
-          sed -i "s/>com.mycompany.myapp</>$APP_NAME</g" android/app/src/main/res/values/strings.xml || true
-          sed -i "s/\"app_name\">Capacitor/\"app_name\">$APP_NAME/g" android/app/src/main/res/values/strings.xml || true
-        fi
-        
-        # Безопасная замена ID пакета в основных файлах конфигурации
-        if [ -f android/app/build.gradle ]; then
-          sed -i "s/com.mycompany.myapp/$NEW_ID/g" android/app/build.gradle || true
-        fi
-        if [ -f android/app/src/main/AndroidManifest.xml ]; then
-          sed -i "s/com.mycompany.myapp/$NEW_ID/g" android/app/src/main/AndroidManifest.xml || true
-        fi
-
-    - name: Generate and Apply App Icons
+    - name: Generate App Icons
       run: npm run build-assets
 
-    - name: Build Android App (Debug APK)
+    - name: Build Debug APK
       run: |
         cd android && ./gradlew assembleDebug
 
