@@ -30,13 +30,23 @@ jobs:
     - name: Initialize Capacitor Android
       run: npx cap add android || npx cap sync android
 
-    - name: Generate App Icons
-      run: npm run build-assets || echo "Иконка не сгенерирована, пропускаем"
-
-    - name: Copy Icons to Android Project
+    - name: Change App Name and ID
       run: |
-        mkdir -p android/app/src/main/res/
-        cp -R res/android/icon/* android/app/src/main/res/ || echo "Файлы иконок не найдены, используем стандартные"
+        # Укажите ваше название приложения
+        APP_NAME="Warszaw with kids"
+        
+        # Укажите ваш новый ID пакета (точно такой же, как в capacitor.config.json)
+        NEW_ID="com.realoverdrive.warsawwithkids"
+        
+        # Меняем название приложения в ресурсах
+        sed -i "s/>com.mycompany.myapp</>$APP_NAME</g" android/app/src/main/res/values/strings.xml || true
+        sed -i "s/\"app_name\">Capacitor/\"app_name\">$APP_NAME/g" android/app/src/main/res/values/strings.xml || true
+        
+        # Корректируем ID пакета в файлах конфигурации Android сборки
+        find android/ -type f \( -name "build.gradle" -o -name "AndroidManifest.xml" \) -exec sed -i "s/com.mycompany.myapp/$NEW_ID/g" {} +
+
+    - name: Generate Apply App Icons
+      run: npm run build-assets
 
     - name: Build Android App (Debug APK)
       run: |
