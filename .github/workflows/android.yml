@@ -19,7 +19,7 @@ jobs:
         node-version: 22
 
     - name: Set up JDK 17
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         distribution: 'zulu'
         java-version: '17'
@@ -31,11 +31,12 @@ jobs:
       run: npx cap add android || npx cap sync android
 
     - name: Generate App Icons
-      run: npm run build-assets
+      run: npm run build-assets || echo "Иконка не сгенерирована, пропускаем"
 
     - name: Copy Icons to Android Project
       run: |
-        cp -R res/android/icon/* android/app/src/main/res/
+        mkdir -p android/app/src/main/res/
+        cp -R res/android/icon/* android/app/src/main/res/ || echo "Файлы иконок не найдены, используем стандартные"
 
     - name: Build Android App (Debug APK)
       run: |
