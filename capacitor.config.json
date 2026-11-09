@@ -1,6 +1,17 @@
 {
-  "appId": "com.realoverdrive.warszawwithkids",
-  "appName": "Warszaw with kids",
-  "webDir": "www",
-  "bundledWebRuntime": false
+  "name": "html-to-apk",
+  "version": "1.0.0",
+  "description": "Build APK from HTML using Capacitor",
+  "main": "index.js",
+  "scripts": {
+    "build-assets": "npx capacitor-assets generate --android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/assets": "^3.0.0"
+  }
 }
