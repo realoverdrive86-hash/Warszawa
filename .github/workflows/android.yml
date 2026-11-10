@@ -24,28 +24,8 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Install Dependencies & Splash Screen Plugin
-      run: |
-        npm install
-        npm install @capacitor/splash-screen@^6.0.0
-
-    - name: Configure Splash Screen in capacitor.config.json
-      run: |
-        python3 -c '
-        import json
-        with open("capacitor.config.json", "r") as f:
-            cfg = json.load(f)
-        cfg.setdefault("plugins", {})["SplashScreen"] = {
-            "launchShowDuration": 1500,
-            "launchAutoHide": True,
-            "backgroundColor": "#1f1a1f",
-            "androidSplashResourceName": "splash",
-            "androidScaleType": "FIT_XY",
-            "showSpinner": False
-        }
-        with open("capacitor.config.json", "w") as f:
-            json.dump(cfg, f, indent=2)
-        '
+    - name: Install Dependencies
+      run: npm install
 
     - name: Fix Pin Colors Without Touching Repo HTML
       run: |
@@ -56,15 +36,18 @@ jobs:
     - name: Initialize Android Project
       run: npx cap add android
 
-    - name: Lock App to Dark Theme & Disable MIUI Auto-Invert
+    - name: Lock App to Dark Theme & Configure Native Fast Splash
       run: |
         STYLE_FILE="android/app/src/main/res/values/styles.xml"
         if [ -f "$STYLE_FILE" ]; then
+          # 1. Запрещаем инверсию цветов (MIUI / Android)
           sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' "$STYLE_FILE"
-          # Задаем темный фон для нативного Android 12+ экрана, чтобы не было белой вспышки
-          sed -i 's/AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">/AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">\n        <item name="windowSplashScreenBackground">#1f1a1f<\/item>/g' "$STYLE_FILE"
+          
+          # 2. Настраиваем встроенный быстрый экран запуска (AndroidX SplashScreen без префикса android:)
+          sed -i 's/AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">/AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">\n        <item name="windowSplashScreenBackground">#1f1a1f<\/item>\n        <item name="windowSplashScreenAnimatedIcon">@drawable\/splash_icon<\/item>/g' "$STYLE_FILE"
         fi
 
+        # Подключаем библиотеку управления WebView
         python3 -c '
         gradle_path = "android/app/build.gradle"
         with open(gradle_path, "r") as f:
@@ -74,6 +57,7 @@ jobs:
             f.write(gradle)
         '
 
+        # Фиксируем темную тему и отключаем Algorithmic Darkening
         python3 -c '
         import glob
         for target in glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True):
@@ -99,7 +83,7 @@ jobs:
                 f.write(code)
         '
 
-    - name: Apply Custom Icon and Unstretched XML Splash via Python
+    - name: Apply Custom Icon and Unstretched Splash Icon via Python
       run: |
         pip install pillow
         python3 -c '
@@ -136,32 +120,12 @@ jobs:
             resized.save(f"{path}/ic_launcher_round.png", "PNG")
             resized.save(f"{path}/ic_launcher_foreground.png", "PNG")
 
-        # 2. Удаляем старые растровые splash.png, чтобы Android не растягивал их
-        for folder in os.listdir(res_dir):
-            if folder.startswith("drawable"):
-                shutil.rmtree(f"{res_dir}/{folder}", ignore_errors=True)
-
-        # 3. Сохраняем квадратный логотип 500x500 в drawable-nodpi (запрещает масштабирование)
+        # 2. Создаем иконку запуска 1024x1024 с прозрачными полями (не удаляя системные папки!)
         os.makedirs(f"{res_dir}/drawable-nodpi", exist_ok=True)
-        logo = img.resize((500, 500), Image.Resampling.LANCZOS)
-        logo.save(f"{res_dir}/drawable-nodpi/splash_logo.png", "PNG")
-
-        # 4. Создаем XML-разметку splash.xml: фон растягивается на весь экран, а логотип строго по центру 1:1
-        os.makedirs(f"{res_dir}/drawable", exist_ok=True)
-        xml_content = """<?xml version="1.0" encoding="utf-8"?>
-        <layer-list xmlns:android="http://android.com">
-            <item>
-                <shape android:shape="rectangle">
-                    <solid android:color="#1f1a1f" />
-                </shape>
-            </item>
-            <item android:drawable="@drawable/splash_logo" android:gravity="center" />
-        </layer-list>
-        """
-        with open(f"{res_dir}/drawable/splash.xml", "w") as f:
-            f.write(xml_content.strip())
-
-        print("XML-заставка (splash.xml) с идеальным квадратом 1:1 успешно создана!")
+        splash_canvas = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+        logo = img.resize((520, 520), Image.Resampling.LANCZOS)
+        splash_canvas.paste(logo, (252, 252), logo)
+        splash_canvas.save(f"{res_dir}/drawable-nodpi/splash_icon.png", "PNG")
         '
 
     - name: Build Debug APK
