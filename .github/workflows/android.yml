@@ -30,8 +30,35 @@ jobs:
     - name: Initialize Android Project
       run: npx cap add android
 
-    - name: Generate App Icons
-      run: npm run build-assets
+    - name: Force Overwrite Android Icons
+      run: |
+        # Проверяем наличие исходной иконки
+        if [ ! -f resources/icon.png ]; then
+          echo "КРИТИЧЕСКАЯ ОШИБКА: Файл resources/icon.png не найден!"
+          exit 1
+        fi
+        
+        # Устанавливаем утилиту для быстрой нарезки картинок
+        sudo apt-get update && sudo apt-get install -y imagemagick
+        
+        # Папка с ресурсами в Android-проекте
+        RES_DIR="android/app/src/main/res"
+        
+        # Генерируем обычные иконки под все разрешения с полной заменой
+        convert resources/icon.png -resize 48x48     $RES_DIR/mipmap-mdpi/ic_launcher.png || true
+        convert resources/icon.png -resize 72x72     $RES_DIR/mipmap-hdpi/ic_launcher.png || true
+        convert resources/icon.png -resize 96x96     $RES_DIR/mipmap-xhdpi/ic_launcher.png || true
+        convert resources/icon.png -resize 144x144   $RES_DIR/mipmap-xxhdpi/ic_launcher.png || true
+        convert resources/icon.png -resize 192x192   $RES_DIR/mipmap-xxxhdpi/ic_launcher.png || true
+        
+        # Генерируем круглые иконки (для новых версий Android) с полной заменой
+        convert resources/icon.png -resize 48x48     $RES_DIR/mipmap-mdpi/ic_launcher_round.png || true
+        convert resources/icon.png -resize 72x72     $RES_DIR/mipmap-hdpi/ic_launcher_round.png || true
+        convert resources/icon.png -resize 96x96     $RES_DIR/mipmap-xhdpi/ic_launcher_round.png || true
+        convert resources/icon.png -resize 144x144   $RES_DIR/mipmap-xxhdpi/ic_launcher_round.png || true
+        convert resources/icon.png -resize 192x192   $RES_DIR/mipmap-xxxhdpi/ic_launcher_round.png || true
+        
+        echo "Все дефолтные иконки успешно стерты и заменены на вашу!"
 
     - name: Build Debug APK
       run: |
