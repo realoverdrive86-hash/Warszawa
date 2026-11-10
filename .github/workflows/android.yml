@@ -30,6 +30,14 @@ jobs:
     - name: Initialize Android Project
       run: npx cap add android
 
+    - name: Disable WebView Force Dark
+      run: |
+        # Запрещаем Android принудительно инвертировать цвета внутри WebView
+        STYLE_FILE="android/app/src/main/res/values/styles.xml"
+        if [ -f "$STYLE_FILE" ]; then
+          sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' "$STYLE_FILE"
+        fi
+
     - name: Apply Custom Icon via Python
       run: |
         pip install pillow
@@ -37,7 +45,6 @@ jobs:
         import os, shutil
         from PIL import Image
 
-        # Автоматически ищем любую картинку в репозитории (кроме системных папок)
         src = None
         for root, dirs, files in os.walk("."):
             dirs[:] = [d for d in dirs if d not in ("node_modules", "android", ".git", ".github", "www")]
@@ -49,11 +56,9 @@ jobs:
                 break
 
         if not src:
-            raise FileNotFoundError("В репозитории не найдено ни одной картинки! Загрузите иконку в ветку main.")
+            raise FileNotFoundError("В репозитории не найдено ни одной картинки!")
 
-        print(f"Найдена иконка: {src}")
         img = Image.open(src).convert("RGBA")
-
         res_dir = "android/app/src/main/res"
         shutil.rmtree(f"{res_dir}/mipmap-anydpi-v26", ignore_errors=True)
 
@@ -65,7 +70,6 @@ jobs:
             resized.save(f"{path}/ic_launcher.png", "PNG")
             resized.save(f"{path}/ic_launcher_round.png", "PNG")
             resized.save(f"{path}/ic_launcher_foreground.png", "PNG")
-        print("Иконка успешно конвертирована и вшита!")
         '
 
     - name: Build Debug APK
