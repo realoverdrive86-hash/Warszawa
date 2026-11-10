@@ -126,10 +126,10 @@ jobs:
                 
                 if h >= w:
                     logo_w = int(w * 0.42)
-                    logo_h = int(logo_w * 0.62)
+                    logo_h = int(logo_w * 0.82)
                 else:
                     logo_h = int(h * 0.42)
-                    logo_w = int(logo_h * 0.62)
+                    logo_w = int(logo_h * 0.82)
                 
                 logo = img.resize((max(1, logo_w), max(1, logo_h)), Image.Resampling.LANCZOS)
                 pos = ((w - logo_w) // 2, (h - logo_h) // 2)
