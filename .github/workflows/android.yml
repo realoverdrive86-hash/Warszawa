@@ -37,16 +37,26 @@ jobs:
         import os, shutil
         from PIL import Image
 
-        # Ищем ваш файл иконки, в каком бы формате он ни был сохранен
-        src = "resources/icon.png" if os.path.exists("resources/icon.png") else "res/icon.png"
+        # Автоматически ищем любую картинку в репозитории (кроме системных папок)
+        src = None
+        for root, dirs, files in os.walk("."):
+            dirs[:] = [d for d in dirs if d not in ("node_modules", "android", ".git", ".github", "www")]
+            for f in files:
+                if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+                    src = os.path.join(root, f)
+                    break
+            if src:
+                break
+
+        if not src:
+            raise FileNotFoundError("В репозитории не найдено ни одной картинки! Загрузите иконку в ветку main.")
+
+        print(f"Найдена иконка: {src}")
         img = Image.open(src).convert("RGBA")
 
         res_dir = "android/app/src/main/res"
-
-        # Удаляем XML-конфиги адаптивных иконок, из-за которых остается крестик
         shutil.rmtree(f"{res_dir}/mipmap-anydpi-v26", ignore_errors=True)
 
-        # Нарезаем и жестко заменяем все иконки во всех папках
         sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
         for folder, px in sizes.items():
             path = f"{res_dir}/mipmap-{folder}"
