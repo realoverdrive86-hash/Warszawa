@@ -30,22 +30,50 @@ jobs:
     - name: Fix Pin Colors Without Touching Repo HTML
       run: |
         if [ -f www/index.html ]; then
-          echo '<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; -webkit-print-color-adjust: exact !important; }</style>' >> www/index.html
+          echo '<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; }</style>' >> www/index.html
         fi
 
     - name: Initialize Android Project
       run: npx cap add android
 
-    - name: Lock App to Dark Theme
+    - name: Lock App to Dark Theme & Disable MIUI Auto-Invert
       run: |
+        # 1. Запрещаем Android/MIUI инвертировать белые цвета (forceDarkAllowed = false)
+        STYLE_FILE="android/app/src/main/res/values/styles.xml"
+        if [ -f "$STYLE_FILE" ]; then
+          sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' "$STYLE_FILE"
+        fi
+
+        # 2. Подключаем библиотеку управления WebView в build.gradle
+        python3 -c '
+        gradle_path = "android/app/build.gradle"
+        with open(gradle_path, "r") as f:
+            gradle = f.read()
+        gradle = gradle.replace("dependencies {", "dependencies {\n    implementation \"androidx.webkit:webkit:1.12.1\"", 1)
+        with open(gradle_path, "w") as f:
+            f.write(gradle)
+        '
+
+        # 3. Фиксируем темную тему приложения и отключаем Algorithmic Darkening в WebView
         python3 -c '
         import glob
         for target in glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True):
             with open(target, "r") as f:
                 code = f.read()
-            imports = "import android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\n"
+            imports = "import android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\nimport androidx.webkit.WebSettingsCompat;\nimport androidx.webkit.WebViewFeature;\n"
             code = code.replace("public class MainActivity", imports + "\npublic class MainActivity")
-            oncreate = "\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);\n        super.onCreate(savedInstanceState);\n    }\n"
+            oncreate = """
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+                super.onCreate(savedInstanceState);
+                if (this.bridge != null && this.bridge.getWebView() != null) {
+                    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(this.bridge.getWebView().getSettings(), false);
+                    }
+                }
+            }
+        """
             idx = code.find("{", code.find("public class MainActivity"))
             code = code[:idx+1] + oncreate + code[idx+1:]
             with open(target, "w") as f:
