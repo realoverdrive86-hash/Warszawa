@@ -27,47 +27,43 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
+    - name: Force Dark Header & White Markers
+      run: |
+        # Заставляем приложение всегда запускаться в темной теме (чтобы шапка всегда была темной)
+        # И добавляем стиль, возвращающий белый фон маркерам и кнопкам карты при сборке
+        if [ -f www/index.html ]; then
+          cat << 'EOF' >> www/index.html
+        <style>
+          .leaflet-control-zoom a {
+            background-color: #ffffff !important;
+            color: #1f242d !important;
+            border-color: #cccccc !important;
+          }
+          .leaflet-marker-icon, .leaflet-div-icon, [class*="marker"], [class*="pin"] {
+            background-color: #ffffff !important;
+          }
+        </style>
+        EOF
+        fi
+
     - name: Initialize Android Project
       run: npx cap add android
 
-    - name: Force WebView Dark Theme & Block Auto-Invert
+    - name: Lock App to Dark Theme
       run: |
         python3 -c '
         import glob
-
-        gradle_path = "android/app/build.gradle"
-        with open(gradle_path, "r") as f:
-            gradle = f.read()
-        gradle = gradle.replace("dependencies {", "dependencies {\n    implementation \"androidx.webkit:webkit:1.12.1\"", 1)
-        with open(gradle_path, "w") as f:
-            f.write(gradle)
-
         files = glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True)
         if files:
             with open(files[0], "r") as f:
                 code = f.read()
-
-            imports = "import android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\nimport androidx.webkit.WebSettingsCompat;\nimport androidx.webkit.WebViewFeature;\n"
+            imports = "import android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\n"
             code = code.replace("public class MainActivity", imports + "\npublic class MainActivity")
-
-            oncreate = """
-            @Override
-            public void onCreate(Bundle savedInstanceState) {
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-                super.onCreate(savedInstanceState);
-                if (this.bridge != null && this.bridge.getWebView() != null) {
-                    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(this.bridge.getWebView().getSettings(), false);
-                    }
-                }
-            }
-        """
+            oncreate = "\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);\n        super.onCreate(savedInstanceState);\n    }\n"
             idx = code.find("{", code.find("public class MainActivity"))
             code = code[:idx+1] + oncreate + code[idx+1:]
-
             with open(files[0], "w") as f:
                 f.write(code)
-            print("MainActivity успешно обновлен!")
         '
 
     - name: Apply Custom Icon via Python
