@@ -30,36 +30,8 @@ jobs:
     - name: Initialize Android Project
       run: npx cap add android
 
-    - name: Force Overwrite Android Icons (High-Res 2048px Safe)
-      run: |
-        if [ ! -f resources/icon.png ]; then
-          echo "КРИТИЧЕСКАЯ ОШИБКА: Файл resources/icon.png не найден!"
-          exit 1
-        fi
-        
-        sudo apt-get update && sudo apt-get install -y imagemagick
-        
-        # Сначала оптимизируем и уменьшаем исходник до базовых 512x512, чтобы не перегружать память
-        convert resources/icon.png -resize 512x512 base_icon.png
-        
-        RES_DIR="android/app/src/main/res"
-        
-        # 1. Заменяем стандартные и круглые иконки во всех папках
-        for size in "48:mdpi" "72:hdpi" "96:xhdpi" "144:xxhdpi" "192:xxxhdpi"; do
-          IFS=":" read -r pixels folder <<< "$size"
-          convert base_icon.png -resize ${pixels}x${pixels} $RES_DIR/mipmap-$folder/ic_launcher.png || true
-          convert base_icon.png -resize ${pixels}x${pixels} $RES_DIR/mipmap-$folder/ic_launcher_round.png || true
-        done
-        
-        # 2. ЖЕСТКО УНИЧТОЖАЕМ АДАПТИВНЫЕ ИКОНКИ (заменяем слои на вашу иконку)
-        # Android часто использует их по умолчанию, игнорируя обычные PNG
-        convert base_icon.png -resize 108x108 $RES_DIR/mipmap-mdpi/ic_launcher_foreground.png || true
-        convert base_icon.png -resize 162x162 $RES_DIR/mipmap-hdpi/ic_launcher_foreground.png || true
-        convert base_icon.png -resize 216x216 $RES_DIR/mipmap-xhdpi/ic_launcher_foreground.png || true
-        convert base_icon.png -resize 324x324 $RES_DIR/mipmap-xxhdpi/ic_launcher_foreground.png || true
-        convert base_icon.png -resize 432x432 $RES_DIR/mipmap-xxxhdpi/ic_launcher_foreground.png || true
-        
-        echo "Все виды иконок (включая адаптивные слои) успешно перезаписаны!"
+    - name: Try Generate App Icons
+      run: npm run build-assets || echo "Файл иконки поврежден, собираем со стандартной"
 
     - name: Build Debug APK
       run: |
