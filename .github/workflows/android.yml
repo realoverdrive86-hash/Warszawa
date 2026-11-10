@@ -30,12 +30,19 @@ jobs:
     - name: Initialize Android Project
       run: npx cap add android
 
-    - name: Disable WebView Force Dark
+    - name: Force Dark App Mode & Disable WebView Auto-Invert
       run: |
-        # Запрещаем Android принудительно инвертировать цвета внутри WebView
+        # 1. Отключаем принудительную инверсию белых кружков (Force Dark)
         STYLE_FILE="android/app/src/main/res/values/styles.xml"
         if [ -f "$STYLE_FILE" ]; then
           sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' "$STYLE_FILE"
+        fi
+        
+        # 2. Заставляем приложение всегда работать в темном режиме (даже в светлой теме телефона)
+        MAIN_ACT=$(find android/app/src/main/java -name "MainActivity.java")
+        if [ -f "$MAIN_ACT" ]; then
+          sed -i 's/package .*;/&\nimport androidx.appcompat.app.AppCompatDelegate;/g' "$MAIN_ACT"
+          sed -i 's/super.onCreate(savedInstanceState);/AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);\n        super.onCreate(savedInstanceState);/g' "$MAIN_ACT"
         fi
 
     - name: Apply Custom Icon via Python
