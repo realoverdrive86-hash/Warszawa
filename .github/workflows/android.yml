@@ -30,19 +30,31 @@ jobs:
     - name: Initialize Android Project
       run: npx cap add android
 
-    - name: Force Dark App Mode & Disable WebView Auto-Invert
+    - name: Force WebView Dark Theme & Block Auto-Invert
       run: |
-        # 1. Отключаем принудительную инверсию белых кружков (Force Dark)
-        STYLE_FILE="android/app/src/main/res/values/styles.xml"
-        if [ -f "$STYLE_FILE" ]; then
-          sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' "$STYLE_FILE"
-        fi
+        # 1. Подключаем библиотеку управления WebView в build.gradle
+        sed -i '/dependencies {/a \    implementation "androidx.webkit:webkit:1.12.1"' android/app/build.gradle
         
-        # 2. Заставляем приложение всегда работать в темном режиме (даже в светлой теме телефона)
+        # 2. Программно фиксируем ночную тему для CSS и запрещаем авто-перекрашивание
         MAIN_ACT=$(find android/app/src/main/java -name "MainActivity.java")
         if [ -f "$MAIN_ACT" ]; then
-          sed -i 's/package .*;/&\nimport androidx.appcompat.app.AppCompatDelegate;/g' "$MAIN_ACT"
-          sed -i 's/super.onCreate(savedInstanceState);/AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);\n        super.onCreate(savedInstanceState);/g' "$MAIN_ACT"
+          sed -i 's/package .*;/&\nimport android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\nimport androidx.webkit.WebSettingsCompat;\nimport androidx.webkit.WebViewFeature;/g' "$MAIN_ACT"
+          
+          cat << 'EOF' > /tmp/oncreate.txt
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+                super.onCreate(savedInstanceState);
+                if (this.bridge != null && this.bridge.getWebView() != null) {
+                    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(this.bridge.getWebView().getSettings(), false);
+                    }
+                }
+            }
+          EOF
+          
+          # Внедряем метод в MainActivity
+          sed -i '/public class MainActivity/r /tmp/oncreate.txt' "$MAIN_ACT"
         fi
 
     - name: Apply Custom Icon via Python
