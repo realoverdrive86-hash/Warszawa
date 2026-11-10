@@ -24,28 +24,8 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Install Dependencies & Splash Screen Plugin
-      run: |
-        npm install
-        npm install @capacitor/splash-screen@^6.0.0
-
-    - name: Configure Splash Screen in capacitor.config.json
-      run: |
-        python3 -c '
-        import json
-        with open("capacitor.config.json", "r") as f:
-            cfg = json.load(f)
-        cfg.setdefault("plugins", {})["SplashScreen"] = {
-            "launchShowDuration": 1500,
-            "launchAutoHide": True,
-            "backgroundColor": "#1f1a1f",
-            "androidSplashResourceName": "splash",
-            "androidScaleType": "CENTER",
-            "showSpinner": False
-        }
-        with open("capacitor.config.json", "w") as f:
-            json.dump(cfg, f, indent=2)
-        '
+    - name: Install Dependencies
+      run: npm install
 
     - name: Fix Pin Colors Without Touching Repo HTML
       run: |
@@ -56,13 +36,15 @@ jobs:
     - name: Initialize Android Project
       run: npx cap add android
 
-    - name: Lock App to Dark Theme & Disable MIUI Auto-Invert
+    - name: Lock App to Dark Theme & Configure Native Splash Screen
       run: |
         STYLE_FILE="android/app/src/main/res/values/styles.xml"
         if [ -f "$STYLE_FILE" ]; then
-          sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' "$STYLE_FILE"
+          # Запрещаем инверсию цветов и настраиваем нативный экран загрузки Android 12+ без растягивания
+          sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n        <item name="android:windowSplashScreenBackground">#1f1a1f<\/item>\n        <item name="android:windowSplashScreenAnimatedIcon">@drawable\/splash_icon<\/item>\n    <\/style>/g' "$STYLE_FILE"
         fi
 
+        # Подключаем библиотеку управления WebView
         python3 -c '
         gradle_path = "android/app/build.gradle"
         with open(gradle_path, "r") as f:
@@ -72,6 +54,7 @@ jobs:
             f.write(gradle)
         '
 
+        # Фиксируем темную тему и отключаем Algorithmic Darkening
         python3 -c '
         import glob
         for target in glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True):
@@ -97,7 +80,7 @@ jobs:
                 f.write(code)
         '
 
-    - name: Apply Custom Icon and Splash Screen via Python
+    - name: Apply Custom Icon and Safe Splash Icon via Python
       run: |
         pip install pillow
         python3 -c '
@@ -117,7 +100,7 @@ jobs:
         if not src:
             raise FileNotFoundError("В репозитории не найдено ни одной картинки!")
 
-        # Обрезаем исходную картинку в ровный квадрат (1:1) без искажений
+        # Выравниваем исходник в идеальный квадрат 1:1
         raw_img = Image.open(src).convert("RGBA")
         min_side = min(raw_img.size)
         img = ImageOps.fit(raw_img, (min_side, min_side), Image.Resampling.LANCZOS)
@@ -125,7 +108,7 @@ jobs:
         res_dir = "android/app/src/main/res"
         shutil.rmtree(f"{res_dir}/mipmap-anydpi-v26", ignore_errors=True)
 
-        # 1. Генерируем иконки приложения
+        # 1. Иконки приложения
         sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
         for folder, px in sizes.items():
             path = f"{res_dir}/mipmap-{folder}"
@@ -135,32 +118,12 @@ jobs:
             resized.save(f"{path}/ic_launcher_round.png", "PNG")
             resized.save(f"{path}/ic_launcher_foreground.png", "PNG")
 
-        # 2. Генерируем квадратную заставку (Splash Screen) 1:1 с учетом плотности экрана (DPI)
-        bg_color = (31, 26, 31, 255)
-        splash_dpi = {
-            "drawable": 600,
-            "drawable-mdpi": 400,
-            "drawable-hdpi": 600,
-            "drawable-xhdpi": 800,
-            "drawable-xxhdpi": 1200,
-            "drawable-xxxhdpi": 1600
-        }
-        for folder, side in splash_dpi.items():
-            path = f"{res_dir}/{folder}"
-            os.makedirs(path, exist_ok=True)
-            canvas = Image.new("RGBA", (side, side), bg_color)
-            logo_size = int(side * 0.45)
-            logo = img.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-            pos = ((side - logo_size) // 2, (side - logo_size) // 2)
-            canvas.paste(logo, pos, logo)
-            canvas.save(f"{path}/splash.png", "PNG")
-
-        # Удаляем старые портретные и альбомные папки, чтобы Android не растягивал их
-        for old_dir in os.listdir(res_dir):
-            if old_dir.startswith("drawable-port") or old_dir.startswith("drawable-land"):
-                shutil.rmtree(f"{res_dir}/{old_dir}", ignore_errors=True)
-
-        print("Пропорциональная заставка (1:1) успешно создана!")
+        # 2. Создаем иконку для нативного экрана загрузки с прозрачными отступами (безопасная зона Android 12)
+        os.makedirs(f"{res_dir}/drawable-nodpi", exist_ok=True)
+        splash_canvas = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+        logo = img.resize((540, 540), Image.Resampling.LANCZOS)
+        splash_canvas.paste(logo, (242, 242), logo)
+        splash_canvas.save(f"{res_dir}/drawable-nodpi/splash_icon.png", "PNG")
         '
 
     - name: Build Debug APK
