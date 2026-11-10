@@ -4,7 +4,7 @@
   "description": "Build APK from HTML using Capacitor",
   "main": "index.js",
   "scripts": {
-    "build-assets": "npx @capacitor/assets generate --android"
+    "build-assets": "npx @capacitor/assets generate --android --assetPath resources"
   },
   "dependencies": {
     "@capacitor/core": "^6.0.0",
