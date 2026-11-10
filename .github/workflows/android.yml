@@ -32,15 +32,25 @@ jobs:
 
     - name: Force WebView Dark Theme & Block Auto-Invert
       run: |
-        # 1. Подключаем библиотеку управления WebView в build.gradle
-        sed -i '/dependencies {/a \    implementation "androidx.webkit:webkit:1.12.1"' android/app/build.gradle
-        
-        # 2. Программно фиксируем ночную тему для CSS и запрещаем авто-перекрашивание
-        MAIN_ACT=$(find android/app/src/main/java -name "MainActivity.java")
-        if [ -f "$MAIN_ACT" ]; then
-          sed -i 's/package .*;/&\nimport android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\nimport androidx.webkit.WebSettingsCompat;\nimport androidx.webkit.WebViewFeature;/g' "$MAIN_ACT"
-          
-          cat << 'EOF' > /tmp/oncreate.txt
+        python3 -c '
+        import glob
+
+        gradle_path = "android/app/build.gradle"
+        with open(gradle_path, "r") as f:
+            gradle = f.read()
+        gradle = gradle.replace("dependencies {", "dependencies {\n    implementation \"androidx.webkit:webkit:1.12.1\"", 1)
+        with open(gradle_path, "w") as f:
+            f.write(gradle)
+
+        files = glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True)
+        if files:
+            with open(files[0], "r") as f:
+                code = f.read()
+
+            imports = "import android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\nimport androidx.webkit.WebSettingsCompat;\nimport androidx.webkit.WebViewFeature;\n"
+            code = code.replace("public class MainActivity", imports + "\npublic class MainActivity")
+
+            oncreate = """
             @Override
             public void onCreate(Bundle savedInstanceState) {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
@@ -51,11 +61,14 @@ jobs:
                     }
                 }
             }
-          EOF
-          
-          # Внедряем метод в MainActivity
-          sed -i '/public class MainActivity/r /tmp/oncreate.txt' "$MAIN_ACT"
-        fi
+        """
+            idx = code.find("{", code.find("public class MainActivity"))
+            code = code[:idx+1] + oncreate + code[idx+1:]
+
+            with open(files[0], "w") as f:
+                f.write(code)
+            print("MainActivity успешно обновлен!")
+        '
 
     - name: Apply Custom Icon via Python
       run: |
