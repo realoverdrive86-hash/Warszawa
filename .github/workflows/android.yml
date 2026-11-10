@@ -114,7 +114,7 @@ jobs:
             resized.save(f"{path}/ic_launcher_round.png", "PNG")
             resized.save(f"{path}/ic_launcher_foreground.png", "PNG")
 
-        # 2. Заменяем стандартные splash.png на ровную заставку без удаления системных папок
+        # 2. Заменяем стандартные splash.png с точной компенсацией вытягивания экрана 20:9
         bg_color = (31, 26, 31, 255)
         for root, dirs, files in os.walk(res_dir):
             if "splash.png" in files:
@@ -122,19 +122,19 @@ jobs:
                 with Image.open(target_splash) as old_sp:
                     w, h = old_sp.size
                 
-                # Компенсируем вытягивание экрана пропорциями 9:20, чтобы картинка выглядела ровно 1:1
                 canvas = Image.new("RGBA", (w, h), bg_color)
-                logo_h = int(min(w, h) * 0.35)
-                logo_w = int(logo_h * (w / h)) if h > w else logo_h
-                if logo_w > w * 0.7:
-                    logo_w = int(w * 0.6)
-                    logo_h = int(logo_w * (h / w))
+                
+                if h >= w:
+                    logo_w = int(w * 0.42)
+                    logo_h = int(logo_w * 0.62)
+                else:
+                    logo_h = int(h * 0.42)
+                    logo_w = int(logo_h * 0.62)
                 
                 logo = img.resize((max(1, logo_w), max(1, logo_h)), Image.Resampling.LANCZOS)
                 pos = ((w - logo_w) // 2, (h - logo_h) // 2)
                 canvas.paste(logo, pos, logo)
                 canvas.save(target_splash, "PNG")
-                print("Обновлена заставка:", target_splash)
         '
 
     - name: Build Debug APK
