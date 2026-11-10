@@ -40,7 +40,7 @@ jobs:
             "launchAutoHide": True,
             "backgroundColor": "#1f1a1f",
             "androidSplashResourceName": "splash",
-            "androidScaleType": "CENTER_INSIDE",
+            "androidScaleType": "CENTER",
             "showSpinner": False
         }
         with open("capacitor.config.json", "w") as f:
@@ -102,7 +102,7 @@ jobs:
         pip install pillow
         python3 -c '
         import os, shutil
-        from PIL import Image
+        from PIL import Image, ImageOps
 
         src = None
         for root, dirs, files in os.walk("."):
@@ -117,7 +117,11 @@ jobs:
         if not src:
             raise FileNotFoundError("В репозитории не найдено ни одной картинки!")
 
-        img = Image.open(src).convert("RGBA")
+        # Обрезаем исходную картинку в ровный квадрат (1:1) без искажений
+        raw_img = Image.open(src).convert("RGBA")
+        min_side = min(raw_img.size)
+        img = ImageOps.fit(raw_img, (min_side, min_side), Image.Resampling.LANCZOS)
+
         res_dir = "android/app/src/main/res"
         shutil.rmtree(f"{res_dir}/mipmap-anydpi-v26", ignore_errors=True)
 
@@ -131,31 +135,32 @@ jobs:
             resized.save(f"{path}/ic_launcher_round.png", "PNG")
             resized.save(f"{path}/ic_launcher_foreground.png", "PNG")
 
-        # 2. Генерируем заставку (Splash Screen) с темным фоном #1f1a1f и логотипом по центру
+        # 2. Генерируем квадратную заставку (Splash Screen) 1:1 с учетом плотности экрана (DPI)
         bg_color = (31, 26, 31, 255)
-        splash_sizes = {
-            "drawable": (480, 800),
-            "drawable-port-mdpi": (320, 480),
-            "drawable-port-hdpi": (480, 800),
-            "drawable-port-xhdpi": (720, 1280),
-            "drawable-port-xxhdpi": (960, 1600),
-            "drawable-port-xxxhdpi": (1280, 1920),
-            "drawable-land-mdpi": (480, 320),
-            "drawable-land-hdpi": (800, 480),
-            "drawable-land-xhdpi": (1280, 720),
-            "drawable-land-xxhdpi": (1600, 960),
-            "drawable-land-xxxhdpi": (1920, 1280)
+        splash_dpi = {
+            "drawable": 600,
+            "drawable-mdpi": 400,
+            "drawable-hdpi": 600,
+            "drawable-xhdpi": 800,
+            "drawable-xxhdpi": 1200,
+            "drawable-xxxhdpi": 1600
         }
-        for folder, (w, h) in splash_sizes.items():
+        for folder, side in splash_dpi.items():
             path = f"{res_dir}/{folder}"
             os.makedirs(path, exist_ok=True)
-            canvas = Image.new("RGBA", (w, h), bg_color)
-            logo_size = int(min(w, h) * 0.38)
+            canvas = Image.new("RGBA", (side, side), bg_color)
+            logo_size = int(side * 0.45)
             logo = img.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-            pos = ((w - logo_size) // 2, (h - logo_size) // 2)
+            pos = ((side - logo_size) // 2, (side - logo_size) // 2)
             canvas.paste(logo, pos, logo)
             canvas.save(f"{path}/splash.png", "PNG")
-        print("Иконки и заставка (Splash Screen) успешно созданы!")
+
+        # Удаляем старые портретные и альбомные папки, чтобы Android не растягивал их
+        for old_dir in os.listdir(res_dir):
+            if old_dir.startswith("drawable-port") or old_dir.startswith("drawable-land"):
+                shutil.rmtree(f"{res_dir}/{old_dir}", ignore_errors=True)
+
+        print("Пропорциональная заставка (1:1) успешно создана!")
         '
 
     - name: Build Debug APK
