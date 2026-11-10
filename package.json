@@ -4,7 +4,7 @@
   "description": "Build APK from HTML using Capacitor",
   "main": "index.js",
   "scripts": {
-    "build-assets": "cordova-res android --skip-config --copy"
+    "build-assets": "npx @capacitor/assets generate --android"
   },
   "dependencies": {
     "@capacitor/core": "^6.0.0",
@@ -12,6 +12,6 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^6.0.0",
-    "cordova-res": "^0.15.4"
+    "@capacitor/assets": "^3.0.0"
   }
 }
