@@ -27,10 +27,12 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Inject Lottie Splash & Fix Pin Colors
+    - name: Inject Offline Lottie Splash & Fix Pin Colors
       run: |
+        curl -sL https://cloudflare.com -o www/lottie.min.js
+
         python3 -c '
-        import os
+        import os, re
 
         if not os.path.exists("www/index.html"):
             raise FileNotFoundError("Файл www/index.html не найден!")
@@ -40,9 +42,9 @@ jobs:
 
         # 1. Фиксируем белые маркеры и кнопки зума
         pin_css = "<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; }</style>\n"
-        html += pin_css
+        html = html.replace("</head>", pin_css + "</head>", 1)
 
-        # 2. Если в корне есть splash.json, вшиваем анимацию Lottie поверх экрана на 2.5 секунды
+        # 2. Вшиваем заставку в САМОЕ НАЧАЛО <body> и включаем canvas-рендерер для 3D-слоя
         if os.path.exists("splash.json"):
             with open("splash.json", "r", encoding="utf-8") as jf:
                 lottie_data = jf.read().strip()
@@ -51,14 +53,14 @@ jobs:
         <div id="custom-lottie-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s ease;">
           <div id="lottie-container" style="width:260px;height:260px;"></div>
         </div>
-        <script src="https://cloudflare.com"></script>
+        <script src="lottie.min.js"></script>
         <script>
           (function() {{
             var splash = document.getElementById("custom-lottie-splash");
             if (window.lottie) {{
               lottie.loadAnimation({{
                 container: document.getElementById("lottie-container"),
-                renderer: "svg",
+                renderer: "canvas",
                 loop: true,
                 autoplay: true,
                 animationData: {lottie_data}
@@ -73,8 +75,8 @@ jobs:
           }})();
         </script>
         """
-            html += splash_block
-            print("Lottie-анимация успешно вшита в приложение!")
+            html = re.sub(r"(<body[^>]*>)", r"\1\n" + splash_block, html, count=1, flags=re.IGNORECASE)
+            print("Автономная Lottie-анимация успешно вшита в начало body!")
 
         with open("www/index.html", "w", encoding="utf-8") as f:
             f.write(html)
@@ -151,7 +153,7 @@ jobs:
         res_dir = "android/app/src/main/res"
         shutil.rmtree(f"{res_dir}/mipmap-anydpi-v26", ignore_errors=True)
 
-        # 1. Иконка приложения на рабочий стол (малыш остается на месте)
+        # 1. Иконка приложения на рабочий стол
         sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
         for folder, px in sizes.items():
             path = f"{res_dir}/mipmap-{folder}"
@@ -161,7 +163,7 @@ jobs:
             resized.save(f"{path}/ic_launcher_round.png", "PNG")
             resized.save(f"{path}/ic_launcher_foreground.png", "PNG")
 
-        # 2. Делаем системный старт чисто темным (#1f1a1f), чтобы сразу плавно включалась анимация Lottie
+        # 2. Чистый темный фон для системного запуска (#1f1a1f)
         bg_color = (31, 26, 31, 255)
         for root, dirs, files in os.walk(res_dir):
             if "splash.png" in files:
