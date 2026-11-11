@@ -27,11 +27,58 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Fix Pin Colors Without Touching Repo HTML
+    - name: Inject Lottie Splash & Fix Pin Colors
       run: |
-        if [ -f www/index.html ]; then
-          echo '<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; }</style>' >> www/index.html
-        fi
+        python3 -c '
+        import os
+
+        if not os.path.exists("www/index.html"):
+            raise FileNotFoundError("Файл www/index.html не найден!")
+
+        with open("www/index.html", "r", encoding="utf-8") as f:
+            html = f.read()
+
+        # 1. Фиксируем белые маркеры и кнопки зума
+        pin_css = "<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; }</style>\n"
+        html += pin_css
+
+        # 2. Если в корне есть splash.json, вшиваем анимацию Lottie поверх экрана на 2.5 секунды
+        if os.path.exists("splash.json"):
+            with open("splash.json", "r", encoding="utf-8") as jf:
+                lottie_data = jf.read().strip()
+
+            splash_block = f"""
+        <div id="custom-lottie-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s ease;">
+          <div id="lottie-container" style="width:260px;height:260px;"></div>
+        </div>
+        <script src="https://cloudflare.com"></script>
+        <script>
+          (function() {{
+            var splash = document.getElementById("custom-lottie-splash");
+            if (window.lottie) {{
+              lottie.loadAnimation({{
+                container: document.getElementById("lottie-container"),
+                renderer: "svg",
+                loop: true,
+                autoplay: true,
+                animationData: {lottie_data}
+              }});
+            }}
+            setTimeout(function() {{
+              if (splash) {{
+                splash.style.opacity = "0";
+                setTimeout(function() {{ splash.remove(); }}, 500);
+              }}
+            }}, 2500);
+          }})();
+        </script>
+        """
+            html += splash_block
+            print("Lottie-анимация успешно вшита в приложение!")
+
+        with open("www/index.html", "w", encoding="utf-8") as f:
+            f.write(html)
+        '
 
     - name: Initialize Android Project
       run: npx cap add android
@@ -77,7 +124,7 @@ jobs:
                 f.write(code)
         '
 
-    - name: Apply Custom Icon and Unstretched Splash via Python
+    - name: Apply Custom Icon & Clean Dark Native Splash
       run: |
         pip install pillow
         python3 -c '
@@ -95,7 +142,7 @@ jobs:
                 break
 
         if not src:
-            raise FileNotFoundError("В репозитории не найдено ни одной картинки!")
+            raise FileNotFoundError("В репозитории не найдено ни одной картинки для иконки!")
 
         raw_img = Image.open(src).convert("RGBA")
         min_side = min(raw_img.size)
@@ -104,7 +151,7 @@ jobs:
         res_dir = "android/app/src/main/res"
         shutil.rmtree(f"{res_dir}/mipmap-anydpi-v26", ignore_errors=True)
 
-        # 1. Иконки приложения
+        # 1. Иконка приложения на рабочий стол (малыш остается на месте)
         sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
         for folder, px in sizes.items():
             path = f"{res_dir}/mipmap-{folder}"
@@ -114,26 +161,14 @@ jobs:
             resized.save(f"{path}/ic_launcher_round.png", "PNG")
             resized.save(f"{path}/ic_launcher_foreground.png", "PNG")
 
-        # 2. Заменяем стандартные splash.png с точной компенсацией вытягивания экрана 20:9
+        # 2. Делаем системный старт чисто темным (#1f1a1f), чтобы сразу плавно включалась анимация Lottie
         bg_color = (31, 26, 31, 255)
         for root, dirs, files in os.walk(res_dir):
             if "splash.png" in files:
                 target_splash = os.path.join(root, "splash.png")
                 with Image.open(target_splash) as old_sp:
                     w, h = old_sp.size
-                
                 canvas = Image.new("RGBA", (w, h), bg_color)
-                
-                if h >= w:
-                    logo_w = int(w * 0.42)
-                    logo_h = int(logo_w * 0.82)
-                else:
-                    logo_h = int(h * 0.42)
-                    logo_w = int(logo_h * 0.82)
-                
-                logo = img.resize((max(1, logo_w), max(1, logo_h)), Image.Resampling.LANCZOS)
-                pos = ((w - logo_w) // 2, (h - logo_h) // 2)
-                canvas.paste(logo, pos, logo)
                 canvas.save(target_splash, "PNG")
         '
 
