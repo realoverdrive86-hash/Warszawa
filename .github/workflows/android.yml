@@ -27,12 +27,10 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Inject Safe Offline Lottie Splash & Fix Pin Colors
+    - name: Inject Styled GIF Splash & Fix Pin Colors
       run: |
-        curl -sL https://cloudflare.com -o www/lottie.min.js
-        
-        if [ -f "splash.json" ]; then
-          cp splash.json www/splash.json
+        if [ -f "splash.gif" ]; then
+          cp splash.gif www/splash.gif
         fi
 
         python3 -c '
@@ -48,37 +46,22 @@ jobs:
         pin_css = "<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; }</style>\n"
         html = html.replace("</head>", pin_css + "</head>", 1)
 
-        # 2. Безопасно вставляем заставку после <body> без прямой вставки JSON в HTML
-        if os.path.exists("www/splash.json"):
+        # 2. Вставляем анимированный GIF в стильный белый круг по центру темного экрана
+        if os.path.exists("www/splash.gif"):
             splash_block = """
-        <div id="custom-lottie-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s ease;">
-          <div id="lottie-container" style="width:260px;height:260px;"></div>
+        <div id="custom-gif-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s ease;">
+          <div style="width:240px;height:240px;border-radius:50%;background:#ffffff;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+            <img src="splash.gif" style="width:200px;height:200px;object-fit:contain;" alt="Loading..." />
+          </div>
         </div>
-        <script src="lottie.min.js"></script>
         <script>
-          (function() {
-            var splash = document.getElementById("custom-lottie-splash");
-            function hideSplash() {
-              if (splash) {
-                splash.style.opacity = "0";
-                setTimeout(function() { if (splash) splash.remove(); }, 500);
-              }
+          setTimeout(function() {
+            var splash = document.getElementById("custom-gif-splash");
+            if (splash) {
+              splash.style.opacity = "0";
+              setTimeout(function() { if (splash) splash.remove(); }, 500);
             }
-            setTimeout(hideSplash, 2500);
-            try {
-              if (window.lottie) {
-                lottie.loadAnimation({
-                  container: document.getElementById("lottie-container"),
-                  renderer: "svg",
-                  loop: true,
-                  autoplay: true,
-                  path: "splash.json"
-                });
-              }
-            } catch (e) {
-              console.error("Lottie error:", e);
-            }
-          })();
+          }, 2500);
         </script>
         """
             idx = html.lower().find("<body")
@@ -86,7 +69,7 @@ jobs:
                 end_body_tag = html.find(">", idx)
                 if end_body_tag != -1:
                     html = html[:end_body_tag+1] + "\n" + splash_block + html[end_body_tag+1:]
-                    print("Заставка безопасно вшита после тега <body>!")
+                    print("GIF-заставка в белом круге успешно вшита!")
 
         with open("www/index.html", "w", encoding="utf-8") as f:
             f.write(html)
@@ -163,7 +146,6 @@ jobs:
         res_dir = "android/app/src/main/res"
         shutil.rmtree(f"{res_dir}/mipmap-anydpi-v26", ignore_errors=True)
 
-        # 1. Иконка приложения на рабочий стол
         sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
         for folder, px in sizes.items():
             path = f"{res_dir}/mipmap-{folder}"
@@ -173,7 +155,6 @@ jobs:
             resized.save(f"{path}/ic_launcher_round.png", "PNG")
             resized.save(f"{path}/ic_launcher_foreground.png", "PNG")
 
-        # 2. Чистый темный фон для системного запуска (#1f1a1f)
         bg_color = (31, 26, 31, 255)
         for root, dirs, files in os.walk(res_dir):
             if "splash.png" in files:
