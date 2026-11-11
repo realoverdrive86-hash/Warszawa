@@ -27,12 +27,16 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Inject Offline Lottie Splash & Fix Pin Colors
+    - name: Inject Safe Offline Lottie Splash & Fix Pin Colors
       run: |
         curl -sL https://cloudflare.com -o www/lottie.min.js
+        
+        if [ -f "splash.json" ]; then
+          cp splash.json www/splash.json
+        fi
 
         python3 -c '
-        import os, re
+        import os
 
         if not os.path.exists("www/index.html"):
             raise FileNotFoundError("Файл www/index.html не найден!")
@@ -44,39 +48,45 @@ jobs:
         pin_css = "<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; }</style>\n"
         html = html.replace("</head>", pin_css + "</head>", 1)
 
-        # 2. Вшиваем заставку в САМОЕ НАЧАЛО <body> и включаем canvas-рендерер для 3D-слоя
-        if os.path.exists("splash.json"):
-            with open("splash.json", "r", encoding="utf-8") as jf:
-                lottie_data = jf.read().strip()
-
-            splash_block = f"""
+        # 2. Безопасно вставляем заставку после <body> без прямой вставки JSON в HTML
+        if os.path.exists("www/splash.json"):
+            splash_block = """
         <div id="custom-lottie-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s ease;">
           <div id="lottie-container" style="width:260px;height:260px;"></div>
         </div>
         <script src="lottie.min.js"></script>
         <script>
-          (function() {{
+          (function() {
             var splash = document.getElementById("custom-lottie-splash");
-            if (window.lottie) {{
-              lottie.loadAnimation({{
-                container: document.getElementById("lottie-container"),
-                renderer: "canvas",
-                loop: true,
-                autoplay: true,
-                animationData: {lottie_data}
-              }});
-            }}
-            setTimeout(function() {{
-              if (splash) {{
+            function hideSplash() {
+              if (splash) {
                 splash.style.opacity = "0";
-                setTimeout(function() {{ splash.remove(); }}, 500);
-              }}
-            }}, 2500);
-          }})();
+                setTimeout(function() { if (splash) splash.remove(); }, 500);
+              }
+            }
+            setTimeout(hideSplash, 2500);
+            try {
+              if (window.lottie) {
+                lottie.loadAnimation({
+                  container: document.getElementById("lottie-container"),
+                  renderer: "svg",
+                  loop: true,
+                  autoplay: true,
+                  path: "splash.json"
+                });
+              }
+            } catch (e) {
+              console.error("Lottie error:", e);
+            }
+          })();
         </script>
         """
-            html = re.sub(r"(<body[^>]*>)", r"\1\n" + splash_block, html, count=1, flags=re.IGNORECASE)
-            print("Автономная Lottie-анимация успешно вшита в начало body!")
+            idx = html.lower().find("<body")
+            if idx != -1:
+                end_body_tag = html.find(">", idx)
+                if end_body_tag != -1:
+                    html = html[:end_body_tag+1] + "\n" + splash_block + html[end_body_tag+1:]
+                    print("Заставка безопасно вшита после тега <body>!")
 
         with open("www/index.html", "w", encoding="utf-8") as f:
             f.write(html)
