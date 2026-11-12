@@ -15,7 +15,7 @@ jobs:
       with: { distribution: 'zulu', java-version: '17' }
     - run: npm install
 
-    - name: Inject Splash, Pins & Native Map Privacy Link
+    - name: Inject Splash, Pins, Privacy & Suppi Link
       run: |
         [ -f "splash.gif" ] && cp splash.gif www/splash.gif
         python3 -c '
@@ -23,7 +23,16 @@ jobs:
         with open("www/index.html", "r", encoding="utf-8") as f: html = f.read()
         html = html.replace("https://github.com", "https://github.io")
         html = html.replace("https://github.com", "https://github.io")
-        html = "<style>.pin,.leaflet-control-zoom a{background:#fff!important;color:#121a27!important;forced-color-adjust:none!important}.priv-in-map{pointer-events:auto!important;margin:0 0 8px 8px!important;display:inline-block!important;font-size:11px!important;color:#fff!important;background:rgba(31,26,31,0.92)!important;padding:5px 10px!important;border-radius:6px!important;border:1px solid rgba(255,255,255,0.3)!important;text-decoration:none!important;font-family:sans-serif!important}</style>\n" + html
+        
+        css = """
+        <style>
+        .pin,.leaflet-control-zoom a{background:#fff!important;color:#121a27!important;forced-color-adjust:none!important}
+        .priv-in-map{pointer-events:auto!important;margin:0 0 8px 8px!important;display:inline-block!important;font-size:10px!important;color:#fff!important;background:rgba(31,26,31,0.92)!important;padding:5px 9px!important;border-radius:8px!important;border:1px solid rgba(255,255,255,0.25)!important;text-decoration:none!important;font-family:sans-serif!important;box-shadow:0 2px 6px rgba(0,0,0,0.4)!important}
+        .coffee-in-map{pointer-events:auto!important;margin:0 8px 6px 0!important;display:inline-flex!important;align-items:center!important;gap:4px!important;font-size:11px!important;font-weight:700!important;color:#1f1a1f!important;background:linear-gradient(135deg,#ffe259,#ffa751)!important;padding:5px 11px!important;border-radius:16px!important;border:1px solid rgba(255,255,255,0.5)!important;text-decoration:none!important;font-family:sans-serif!important;box-shadow:0 2px 8px rgba(0,0,0,0.45)!important;white-space:nowrap!important}
+        </style>
+        """
+        html = css + "\n" + html
+
         if os.path.exists("www/splash.gif"):
             sp = """<div id="custom-gif-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s"><div style="width:240px;height:240px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden"><img src="splash.gif" style="width:200px;height:200px;object-fit:contain"/></div></div><script>setTimeout(function(){var s=document.getElementById("custom-gif-splash");if(s){s.style.opacity="0";setTimeout(function(){s.remove()},500)}},2500)</script>"""
             idx = html.lower().find("<body")
@@ -31,29 +40,45 @@ jobs:
                 end = html.find(">", idx)
                 html = html[:end+1] + "\n" + sp + html[end+1:]
         
-        priv = """
+        controls = """
         <script>
         (function(){
-          var dict = { RU: "Политика конфиденциальности", PL: "Polityka prywatności", EN: "Privacy Policy" };
+          var dict = {
+            RU: { priv: "Политика конфиденциальности", cof: "☕ Угостить кофе" },
+            PL: { priv: "Polityka prywatności", cof: "☕ Postaw kawę" },
+            EN: { priv: "Privacy Policy", cof: "☕ Buy a coffee" }
+          };
           var cur = "RU";
           function mount() {
-            var corner = document.querySelector(".leaflet-bottom.leaflet-left");
-            if (corner && !document.getElementById("dyn-privacy-link")) {
+            var leftCorner = document.querySelector(".leaflet-bottom.leaflet-left");
+            if (leftCorner && !document.getElementById("dyn-privacy-link")) {
               var a = document.createElement("a");
               a.id = "dyn-privacy-link";
               a.className = "leaflet-control priv-in-map";
               a.href = "https://realoverdrive86-hash.github.io/Warszawa/privacy.html";
               a.target = "_blank";
-              a.textContent = dict[cur];
-              corner.appendChild(a);
+              a.textContent = dict[cur].priv;
+              leftCorner.appendChild(a);
+            }
+            var rightCorner = document.querySelector(".leaflet-bottom.leaflet-right");
+            if (rightCorner && !document.getElementById("dyn-coffee-link")) {
+              var c = document.createElement("a");
+              c.id = "dyn-coffee-link";
+              c.className = "leaflet-control coffee-in-map";
+              c.href = "https://suppi.pl";
+              c.target = "_blank";
+              c.textContent = dict[cur].cof;
+              rightCorner.insertBefore(c, rightCorner.firstChild);
             }
           }
           document.addEventListener("click", function(e) {
             var t = ((e.target && e.target.innerText) || "").trim().toUpperCase();
             if (t === "RU" || t === "PL" || t === "EN") {
               cur = t;
-              var el = document.getElementById("dyn-privacy-link");
-              if (el) el.textContent = dict[cur];
+              var elP = document.getElementById("dyn-privacy-link");
+              var elC = document.getElementById("dyn-coffee-link");
+              if (elP) elP.textContent = dict[cur].priv;
+              if (elC) elC.textContent = dict[cur].cof;
             }
           }, true);
           setInterval(mount, 500);
@@ -62,9 +87,9 @@ jobs:
         """
         if "</body>" in html.lower():
             idx = html.lower().rfind("</body>")
-            html = html[:idx] + "\n" + priv + "\n" + html[idx:]
+            html = html[:idx] + "\n" + controls + "\n" + html[idx:]
         else:
-            html += "\n" + priv
+            html += "\n" + controls
 
         with open("www/index.html", "w", encoding="utf-8") as f: f.write(html)
         '
@@ -72,7 +97,7 @@ jobs:
     - run: npx cap add android
     - name: Set Version & Dark Mode
       run: |
-        sed -i 's/versionCode 1/versionCode 13/g; s/versionName "1.0"/versionName "2.2"/g' android/app/build.gradle
+        sed -i 's/versionCode 1/versionCode 16/g; s/versionName "1.0"/versionName "2.5"/g' android/app/build.gradle
         sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' android/app/src/main/res/values/styles.xml
         python3 -c '
         import glob
