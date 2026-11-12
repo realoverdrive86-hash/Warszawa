@@ -52,7 +52,7 @@ jobs:
               var a = document.createElement("a");
               a.id = "dyn-privacy-link";
               a.className = "leaflet-control map-badge-btn priv-pos";
-              a.href = "https://realoverdrive86-hash.github.io/Warszawa/privacy.html";
+              a.href = "https://github.io";
               a.target = "_blank";
               a.textContent = dict[cur];
               leftCorner.appendChild(a);
@@ -139,7 +139,7 @@ jobs:
               var c = document.createElement("a");
               c.id = "dyn-coffee-link";
               c.className = "leaflet-control map-badge-btn coffee-pos";
-              c.href = "https://suppi.pl/warsawwithkids";
+              c.href = "https://suppi.pl";
               c.target = "_blank";
               c.textContent = dict[cur];
               rightCorner.insertBefore(c, rightCorner.firstChild);
