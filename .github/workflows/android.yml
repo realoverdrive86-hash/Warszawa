@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Signed Release APK
 
 on:
   push:
@@ -42,11 +42,9 @@ jobs:
         with open("www/index.html", "r", encoding="utf-8") as f:
             html = f.read()
 
-        # 1. Фиксируем белые маркеры и кнопки зума
         pin_css = "<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; }</style>\n"
         html = html.replace("</head>", pin_css + "</head>", 1)
 
-        # 2. Вставляем анимированный GIF в стильный белый круг по центру темного экрана
         if os.path.exists("www/splash.gif"):
             splash_block = """
         <div id="custom-gif-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s ease;">
@@ -69,7 +67,6 @@ jobs:
                 end_body_tag = html.find(">", idx)
                 if end_body_tag != -1:
                     html = html[:end_body_tag+1] + "\n" + splash_block + html[end_body_tag+1:]
-                    print("GIF-заставка в белом круге успешно вшита!")
 
         with open("www/index.html", "w", encoding="utf-8") as f:
             f.write(html)
@@ -165,13 +162,21 @@ jobs:
                 canvas.save(target_splash, "PNG")
         '
 
-    - name: Build Debug APK
+    - name: Decode Keystore
       run: |
-        cd android && ./gradlew clean && ./gradlew assembleDebug
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.keystore
 
-    - name: Upload Finished APK
+    - name: Build Signed Release APK
+      run: |
+        cd android && ./gradlew clean && ./gradlew assembleRelease \
+          -Pandroid.injected.signing.store.file=release-key.keystore \
+          -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+          -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+          -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
+    - name: Upload Finished Release APK
       uses: actions/upload-artifact@v4
       with:
-        name: Finished-APK
-        path: android/app/build/outputs/apk/debug/app-debug.apk
+        name: Finished-Release-APK
+        path: android/app/build/outputs/apk/release/app-release.apk
         
