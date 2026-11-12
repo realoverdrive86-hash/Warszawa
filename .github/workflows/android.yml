@@ -72,7 +72,7 @@ jobs:
 
         # 3. Встраиваем аккуратную кнопку Privacy Policy с правильной ссылкой в нижний левый угол экрана
         privacy_link = """
-        <a href="https://github.io" target="_blank" rel="noopener noreferrer" style="position:fixed;bottom:6px;left:6px;z-index:9999;font-size:10px;color:#ffffff;background:rgba(31,26,31,0.8);padding:3px 7px;border-radius:4px;text-decoration:none;font-family:sans-serif;border:1px solid rgba(255,255,255,0.2);">Privacy Policy</a>
+        <a href="https://realoverdrive86-hash.github.io/Warszawa/privacy.html" target="_blank" rel="noopener noreferrer" style="position:fixed;bottom:6px;left:6px;z-index:9999;font-size:10px;color:#ffffff;background:rgba(31,26,31,0.8);padding:3px 7px;border-radius:4px;text-decoration:none;font-family:sans-serif;border:1px solid rgba(255,255,255,0.2);">Privacy Policy</a>
         """
         html = html.replace("</body>", privacy_link + "\n</body>", 1)
 
