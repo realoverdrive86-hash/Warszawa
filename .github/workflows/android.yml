@@ -1,5 +1,4 @@
 name: Build Signed Release APK & AAB
-
 on:
   push:
     branches: [ main, master ]
@@ -8,200 +7,80 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout Source Code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with: { node-version: 22 }
+    - uses: actions/setup-java@v5
+      with: { distribution: 'zulu', java-version: '17' }
+    - run: npm install
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 22
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v5
-      with:
-        distribution: 'zulu'
-        java-version: '17'
-
-    - name: Install Dependencies
-      run: npm install
-
-    - name: Inject GIF Splash, Pin Colors & Privacy Policy Link
+    - name: Inject Splash, Pins & Privacy Link
       run: |
-        if [ -f "splash.gif" ]; then
-          cp splash.gif www/splash.gif
-        fi
-
+        [ -f "splash.gif" ] && cp splash.gif www/splash.gif
         python3 -c '
         import os
-
-        if not os.path.exists("www/index.html"):
-            raise FileNotFoundError("Файл www/index.html не найден!")
-
-        with open("www/index.html", "r", encoding="utf-8") as f:
-            html = f.read()
-
-        # 1. Фиксируем белые маркеры и кнопки зума
-        pin_css = "<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; }</style>\n"
-        html = html.replace("</head>", pin_css + "</head>", 1)
-
-        # 2. Вставляем анимированный GIF в белом круге при запуске
+        with open("www/index.html", "r", encoding="utf-8") as f: html = f.read()
+        html = html.replace("https://github.com", "https://github.io")
+        html = html.replace("https://github.com", "https://github.io")
+        html = "<style>.pin,.leaflet-control-zoom a{background:#fff!important;color:#121a27!important;forced-color-adjust:none!important}</style>\n" + html
         if os.path.exists("www/splash.gif"):
-            splash_block = """
-        <div id="custom-gif-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s ease;">
-          <div style="width:240px;height:240px;border-radius:50%;background:#ffffff;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-            <img src="splash.gif" style="width:200px;height:200px;object-fit:contain;" alt="Loading..." />
-          </div>
-        </div>
-        <script>
-          setTimeout(function() {
-            var splash = document.getElementById("custom-gif-splash");
-            if (splash) {
-              splash.style.opacity = "0";
-              setTimeout(function() { if (splash) splash.remove(); }, 500);
-            }
-          }, 2500);
-        </script>
-        """
+            sp = """<div id="custom-gif-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s"><div style="width:240px;height:240px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden"><img src="splash.gif" style="width:200px;height:200px;object-fit:contain"/></div></div><script>setTimeout(function(){var s=document.getElementById("custom-gif-splash");if(s){s.style.opacity="0";setTimeout(function(){s.remove()},500)}},2500)</script>"""
             idx = html.lower().find("<body")
             if idx != -1:
-                end_body_tag = html.find(">", idx)
-                if end_body_tag != -1:
-                    html = html[:end_body_tag+1] + "\n" + splash_block + html[end_body_tag+1:]
-
-        # 3. Встраиваем аккуратную кнопку Privacy Policy с правильной ссылкой в нижний левый угол экрана
-        privacy_link = """
-        <a href="https://realoverdrive86-hash.github.io/Warszawa/privacy.html" target="_blank" rel="noopener noreferrer" style="position:fixed;bottom:6px;left:6px;z-index:9999;font-size:10px;color:#ffffff;background:rgba(31,26,31,0.8);padding:3px 7px;border-radius:4px;text-decoration:none;font-family:sans-serif;border:1px solid rgba(255,255,255,0.2);">Privacy Policy</a>
-        """
-        html = html.replace("</body>", privacy_link + "\n</body>", 1)
-
-        with open("www/index.html", "w", encoding="utf-8") as f:
-            f.write(html)
+                end = html.find(">", idx)
+                html = html[:end+1] + "\n" + sp + html[end+1:]
+        priv = """<div style="position:fixed;bottom:10px;left:10px;z-index:2147483647;font-family:sans-serif"><a id="dyn-privacy-link" href="https://realoverdrive86-hash.github.io/Warszawa/privacy.html" target="_blank" style="display:inline-block;font-size:11px;color:#fff;background:rgba(31,26,31,0.92);padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);text-decoration:none">Политика конфиденциальности</a></div><script>(function(){var d={ru:"Политика конфиденциальности",pl:"Polityka prywatności",en:"Privacy Policy"},c="ru";function u(){var t=(document.body.innerText||"").slice(0,350),l="ru";if(t.indexOf("Warszawa z")!=-1||t.indexOf("Filtry")!=-1)l="pl";else if(t.indexOf("Warsaw with")!=-1||t.indexOf("Filters")!=-1)l="en";if(l!=c){c=l;var e=document.getElementById("dyn-privacy-link");if(e)e.textContent=d[c]}}setInterval(u,400)})()</script>"""
+        with open("www/index.html", "w", encoding="utf-8") as f: f.write(html + "\n" + priv)
         '
 
-    - name: Initialize Android Project
-      run: npx cap add android
-
-    - name: Set App Version
+    - run: npx cap add android
+    - name: Set Version & Dark Mode
       run: |
-        # Меняйте эти два значения при каждом новом выпуске обновления:
-        NEW_CODE="2"
-        NEW_NAME="1.1"
-        
-        GRADLE_FILE="android/app/build.gradle"
-        sed -i "s/versionCode 1/versionCode $NEW_CODE/g" "$GRADLE_FILE"
-        sed -i "s/versionName \"1.0\"/versionName \"$NEW_NAME\"/g" "$GRADLE_FILE"
-        echo "Установлена версия приложения: $NEW_NAME (код сборки: $NEW_CODE)"
-
-    - name: Lock App to Dark Theme & Disable MIUI Auto-Invert
-      run: |
-        STYLE_FILE="android/app/src/main/res/values/styles.xml"
-        if [ -f "$STYLE_FILE" ]; then
-          sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' "$STYLE_FILE"
-        fi
-
-        python3 -c '
-        gradle_path = "android/app/build.gradle"
-        with open(gradle_path, "r") as f:
-            gradle = f.read()
-        gradle = gradle.replace("dependencies {", "dependencies {\n    implementation \"androidx.webkit:webkit:1.12.1\"", 1)
-        with open(gradle_path, "w") as f:
-            f.write(gradle)
-        '
-
+        sed -i 's/versionCode 1/versionCode 5/g; s/versionName "1.0"/versionName "1.4"/g' android/app/build.gradle
+        sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' android/app/src/main/res/values/styles.xml
         python3 -c '
         import glob
-        for target in glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True):
-            with open(target, "r") as f:
-                code = f.read()
-            imports = "import android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\nimport androidx.webkit.WebSettingsCompat;\nimport androidx.webkit.WebViewFeature;\n"
-            code = code.replace("public class MainActivity", imports + "\npublic class MainActivity")
-            oncreate = """
-            @Override
-            public void onCreate(Bundle savedInstanceState) {
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-                super.onCreate(savedInstanceState);
-                if (this.bridge != null && this.bridge.getWebView() != null) {
-                    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(this.bridge.getWebView().getSettings(), false);
-                    }
-                }
-            }
-        """
-            idx = code.find("{", code.find("public class MainActivity"))
-            code = code[:idx+1] + oncreate + code[idx+1:]
-            with open(target, "w") as f:
-                f.write(code)
+        g = open("android/app/build.gradle").read().replace("dependencies {", "dependencies {\n    implementation \"androidx.webkit:webkit:1.12.1\"", 1)
+        open("android/app/build.gradle", "w").write(g)
+        for t in glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True):
+            c = open(t).read().replace("public class MainActivity", "import android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\nimport androidx.webkit.WebSettingsCompat;\nimport androidx.webkit.WebViewFeature;\npublic class MainActivity")
+            oc = "\n@Override public void onCreate(Bundle s){AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);super.onCreate(s);if(this.bridge!=null&&this.bridge.getWebView()!=null&&WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING))WebSettingsCompat.setAlgorithmicDarkeningAllowed(this.bridge.getWebView().getSettings(),false);}\n"
+            i = c.find("{", c.find("public class MainActivity"))
+            open(t, "w").write(c[:i+1] + oc + c[i+1:])
         '
 
-    - name: Apply Custom Icon & Clean Dark Native Splash
+    - name: Apply Icon & Splash
       run: |
         pip install pillow
         python3 -c '
         import os, shutil
         from PIL import Image, ImageOps
-
-        src = None
-        for root, dirs, files in os.walk("."):
-            dirs[:] = [d for d in dirs if d not in ("node_modules", "android", ".git", ".github", "www")]
-            for f in files:
-                if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
-                    src = os.path.join(root, f)
-                    break
-            if src:
-                break
-
-        if not src:
-            raise FileNotFoundError("В репозитории не найдено ни одной картинки для иконки!")
-
-        raw_img = Image.open(src).convert("RGBA")
-        min_side = min(raw_img.size)
-        img = ImageOps.fit(raw_img, (min_side, min_side), Image.Resampling.LANCZOS)
-
-        res_dir = "android/app/src/main/res"
-        shutil.rmtree(f"{res_dir}/mipmap-anydpi-v26", ignore_errors=True)
-
-        sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
-        for folder, px in sizes.items():
-            path = f"{res_dir}/mipmap-{folder}"
-            os.makedirs(path, exist_ok=True)
-            resized = img.resize((px, px), Image.Resampling.LANCZOS)
-            resized.save(f"{path}/ic_launcher.png", "PNG")
-            resized.save(f"{path}/ic_launcher_round.png", "PNG")
-            resized.save(f"{path}/ic_launcher_foreground.png", "PNG")
-
-        bg_color = (31, 26, 31, 255)
-        for root, dirs, files in os.walk(res_dir):
-            if "splash.png" in files:
-                target_splash = os.path.join(root, "splash.png")
-                with Image.open(target_splash) as old_sp:
-                    w, h = old_sp.size
-                canvas = Image.new("RGBA", (w, h), bg_color)
-                canvas.save(target_splash, "PNG")
+        src = next((os.path.join(r, f) for r, d, fs in os.walk(".") if not any(x in r for x in ("node_modules","android",".git",".github","www")) for f in fs if f.lower().endswith((".png",".jpg",".jpeg",".webp"))), None)
+        raw = Image.open(src).convert("RGBA")
+        img = ImageOps.fit(raw, (min(raw.size), min(raw.size)), Image.Resampling.LANCZOS)
+        res = "android/app/src/main/res"
+        shutil.rmtree(f"{res}/mipmap-anydpi-v26", ignore_errors=True)
+        for k, px in {"mdpi":48,"hdpi":72,"xhdpi":96,"xxhdpi":144,"xxxhdpi":192}.items():
+            p = f"{res}/mipmap-{k}"; os.makedirs(p, exist_ok=True); r = img.resize((px,px), Image.Resampling.LANCZOS)
+            for n in ("ic_launcher.png","ic_launcher_round.png","ic_launcher_foreground.png"): r.save(f"{p}/{n}", "PNG")
+        for r, d, fs in os.walk(res):
+            if "splash.png" in fs:
+                tp = os.path.join(r, "splash.png"); w, h = Image.open(tp).size
+                Image.new("RGBA", (w, h), (31, 26, 31, 255)).save(tp, "PNG")
         '
-
-    - name: Decode Keystore
-      run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.keystore
 
     - name: Build Signed Release APK & AAB
       run: |
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.keystore
         cd android && ./gradlew clean && ./gradlew assembleRelease bundleRelease \
           -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" \
           -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
           -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
           -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
 
-    - name: Upload Finished Release APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: Finished-Release-APK
-        path: android/app/build/outputs/apk/release/app-release.apk
-
-    - name: Upload Finished Release AAB (Google Play)
-      uses: actions/upload-artifact@v4
-      with:
-        name: Finished-Release-AAB
-        path: android/app/build/outputs/bundle/release/app-release.aab
-        
+    - uses: actions/upload-artifact@v4
+      with: { name: Finished-Release-APK, path: android/app/build/outputs/apk/release/app-release.apk }
+    - uses: actions/upload-artifact@v4
+      with: { name: Finished-Release-AAB, path: android/app/build/outputs/bundle/release/app-release.aab }
+      
