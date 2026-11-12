@@ -1,0 +1,38 @@
+name: Generate Keystore
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up JDK 17
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Create Release Keystore & Base64
+      run: |
+        keytool -genkey -v \
+          -keystore release-key.keystore \
+          -alias warsaw-kids \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -storepass WarsawKids2026! \
+          -keypass WarsawKids2026! \
+          -dname "CN=WarsawKids, OU=Mobile, O=App, L=Warsaw, ST=Mazovia, C=PL"
+        
+        base64 -w 0 release-key.keystore > key_base64.txt
+
+    - name: Upload Keystore Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: My-Release-Key
+        path: |
+          release-key.keystore
+          key_base64.txt
+          
