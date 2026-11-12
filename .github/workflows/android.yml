@@ -15,7 +15,7 @@ jobs:
       with: { distribution: 'zulu', java-version: '17' }
     - run: npm install
 
-    - name: Inject Splash, Pins & Privacy Link
+    - name: Inject Splash, Pins & Map-Only Privacy Link
       run: |
         [ -f "splash.gif" ] && cp splash.gif www/splash.gif
         python3 -c '
@@ -30,14 +30,14 @@ jobs:
             if idx != -1:
                 end = html.find(">", idx)
                 html = html[:end+1] + "\n" + sp + html[end+1:]
-        priv = """<div style="position:fixed;bottom:10px;left:10px;z-index:9000;font-family:sans-serif"><a id="dyn-privacy-link" href="https://realoverdrive86-hash.github.io/Warszawa/privacy.html" target="_blank" style="display:inline-block;font-size:11px;color:#fff;background:rgba(31,26,31,0.92);padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);text-decoration:none">Политика конфиденциальности</a></div><script>(function(){var d={ru:"Политика конфиденциальности",pl:"Polityka prywatności",en:"Privacy Policy"},c="ru";function u(){var t=(document.body.innerText||"").slice(0,350),l="ru";if(t.indexOf("Warszawa z")!=-1||t.indexOf("Filtry")!=-1)l="pl";else if(t.indexOf("Warsaw with")!=-1||t.indexOf("Filters")!=-1)l="en";if(l!=c){c=l;var e=document.getElementById("dyn-privacy-link");if(e)e.textContent=d[c]}}setInterval(u,400)})()</script>"""
+        priv = """<div id="dyn-privacy-box" style="position:fixed;bottom:10px;left:10px;z-index:500;font-family:sans-serif"><a id="dyn-privacy-link" href="https://github.io" target="_blank" style="display:inline-block;font-size:11px;color:#fff;background:rgba(31,26,31,0.92);padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);text-decoration:none">Политика конфиденциальности</a></div><script>(function(){var d={ru:"Политика конфиденциальности",pl:"Polityka prywatności",en:"Privacy Policy"},c="ru";function u(){var box=document.getElementById("dyn-privacy-box"),e=document.getElementById("dyn-privacy-link"),map=document.querySelector(".leaflet-container");if(!box||!e)return;var mapVisible=map&&map.offsetWidth>0&&map.offsetHeight>0&&window.getComputedStyle(map).display!=="none"&&window.getComputedStyle(map).visibility!=="hidden";var bodyText=(document.body.innerText||"");var modalOpen=bodyText.indexOf("Почему стоит пойти")!==-1||bodyText.indexOf("Dlaczego warto")!==-1||bodyText.indexOf("Why go")!==-1||bodyText.indexOf("Сбросить")!==-1||bodyText.indexOf("Resetuj")!==-1||bodyText.indexOf("Reset")!==-1;box.style.display=(mapVisible&&!modalOpen)?"block":"none";var t=bodyText.slice(0,350),l="ru";if(t.indexOf("Warszawa z")!=-1||t.indexOf("Filtry")!=-1)l="pl";else if(t.indexOf("Warsaw with")!=-1||t.indexOf("Filters")!=-1)l="en";if(l!=c){c=l;e.textContent=d[c]}}setInterval(u,300)})()</script>"""
         with open("www/index.html", "w", encoding="utf-8") as f: f.write(html + "\n" + priv)
         '
 
     - run: npx cap add android
     - name: Set Version & Dark Mode
       run: |
-        sed -i 's/versionCode 1/versionCode 6/g; s/versionName "1.0"/versionName "1.5"/g' android/app/build.gradle
+        sed -i 's/versionCode 1/versionCode 7/g; s/versionName "1.0"/versionName "1.6"/g' android/app/build.gradle
         sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' android/app/src/main/res/values/styles.xml
         python3 -c '
         import glob
