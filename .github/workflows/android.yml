@@ -27,9 +27,8 @@ jobs:
         css = """
         <style>
         .pin,.leaflet-control-zoom a{background:#fff!important;color:#121a27!important;forced-color-adjust:none!important}
+        .badges-row{pointer-events:auto!important;margin:0 0 8px 8px!important;display:flex!important;flex-wrap:wrap!important;gap:6px!important;align-items:center!important}
         .map-badge-btn{pointer-events:auto!important;display:inline-block!important;font-size:10px!important;color:#fff!important;background:rgba(31,26,31,0.92)!important;padding:5px 9px!important;border-radius:8px!important;border:1px solid rgba(255,255,255,0.25)!important;text-decoration:none!important;font-family:sans-serif!important;box-shadow:0 2px 6px rgba(0,0,0,0.4)!important;white-space:nowrap!important}
-        .priv-pos{margin:0 0 8px 8px!important}
-        .coffee-pos{margin:0 8px 6px 0!important}
         </style>
         """
         html = css + "\n" + html
@@ -48,14 +47,18 @@ jobs:
           var cur = "RU";
           function mount() {
             var leftCorner = document.querySelector(".leaflet-bottom.leaflet-left");
-            if (leftCorner && !document.getElementById("dyn-privacy-link")) {
+            if (leftCorner && !document.getElementById("dyn-badges-row")) {
+              var row = document.createElement("div");
+              row.id = "dyn-badges-row";
+              row.className = "leaflet-control badges-row";
               var a = document.createElement("a");
               a.id = "dyn-privacy-link";
-              a.className = "leaflet-control map-badge-btn priv-pos";
+              a.className = "map-badge-btn";
               a.href = "https://github.io";
               a.target = "_blank";
               a.textContent = dict[cur];
-              leftCorner.appendChild(a);
+              row.appendChild(a);
+              leftCorner.appendChild(row);
             }
           }
           document.addEventListener("click", function(e) {
@@ -66,7 +69,7 @@ jobs:
               if (elP) elP.textContent = dict[cur];
             }
           }, true);
-          setInterval(mount, 500);
+          setInterval(mount, 400);
         })();
         </script>
         """
@@ -82,7 +85,7 @@ jobs:
     - run: npx cap add android
     - name: Set Version & Dark Mode
       run: |
-        sed -i 's/versionCode 1/versionCode 17/g; s/versionName "1.0"/versionName "2.6"/g' android/app/build.gradle
+        sed -i 's/versionCode 1/versionCode 18/g; s/versionName "1.0"/versionName "2.7"/g' android/app/build.gradle
         sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' android/app/src/main/res/values/styles.xml
         python3 -c '
         import glob
@@ -134,15 +137,15 @@ jobs:
           var dict = { RU: "☕ Угостить кофе", PL: "☕ Postaw kawę", EN: "☕ Buy a coffee" };
           var cur = "RU";
           function mountCoffee() {
-            var rightCorner = document.querySelector(".leaflet-bottom.leaflet-right");
-            if (rightCorner && !document.getElementById("dyn-coffee-link")) {
+            var row = document.getElementById("dyn-badges-row");
+            if (row && !document.getElementById("dyn-coffee-link")) {
               var c = document.createElement("a");
               c.id = "dyn-coffee-link";
-              c.className = "leaflet-control map-badge-btn coffee-pos";
-              c.href = "https://suppi.pl";
+              c.className = "map-badge-btn";
+              c.href = "https://suppi.pl/warsawwithkids";
               c.target = "_blank";
               c.textContent = dict[cur];
-              rightCorner.insertBefore(c, rightCorner.firstChild);
+              row.appendChild(c);
             }
           }
           document.addEventListener("click", function(e) {
@@ -153,7 +156,7 @@ jobs:
               if (elC) elC.textContent = dict[cur];
             }
           }, true);
-          setInterval(mountCoffee, 500);
+          setInterval(mountCoffee, 400);
         })();
         </script>
         """
@@ -164,6 +167,7 @@ jobs:
             html += "\n" + coffee_script
         with open("www/index.html", "w", encoding="utf-8") as f: f.write(html)
         '
+        npx cap copy android
         cd android && ./gradlew assembleRelease \
           -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" \
           -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
