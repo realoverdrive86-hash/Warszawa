@@ -1,4 +1,4 @@
-name: Build Signed Release APK
+name: Build Signed Release APK & AAB
 
 on:
   push:
@@ -177,9 +177,9 @@ jobs:
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.keystore
 
-    - name: Build Signed Release APK
+    - name: Build Signed Release APK & AAB
       run: |
-        cd android && ./gradlew clean && ./gradlew assembleRelease \
+        cd android && ./gradlew clean && ./gradlew assembleRelease bundleRelease \
           -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" \
           -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
           -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
@@ -190,4 +190,10 @@ jobs:
       with:
         name: Finished-Release-APK
         path: android/app/build/outputs/apk/release/app-release.apk
+
+    - name: Upload Finished Release AAB (Google Play)
+      uses: actions/upload-artifact@v4
+      with:
+        name: Finished-Release-AAB
+        path: android/app/build/outputs/bundle/release/app-release.aab
         
