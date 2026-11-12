@@ -75,6 +75,17 @@ jobs:
     - name: Initialize Android Project
       run: npx cap add android
 
+    - name: Set App Version
+      run: |
+        # Меняйте эти два значения при каждом новом выпуске обновления:
+        NEW_CODE="2"
+        NEW_NAME="1.1"
+        
+        GRADLE_FILE="android/app/build.gradle"
+        sed -i "s/versionCode 1/versionCode $NEW_CODE/g" "$GRADLE_FILE"
+        sed -i "s/versionName \"1.0\"/versionName \"$NEW_NAME\"/g" "$GRADLE_FILE"
+        echo "Установлена версия приложения: $NEW_NAME (код сборки: $NEW_CODE)"
+
     - name: Lock App to Dark Theme & Disable MIUI Auto-Invert
       run: |
         STYLE_FILE="android/app/src/main/res/values/styles.xml"
@@ -169,10 +180,10 @@ jobs:
     - name: Build Signed Release APK
       run: |
         cd android && ./gradlew clean && ./gradlew assembleRelease \
-          -Pandroid.injected.signing.store.file=release-key.keystore \
-          -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
-          -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
-          -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+          -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" \
+          -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
+          -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
+          -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
 
     - name: Upload Finished Release APK
       uses: actions/upload-artifact@v4
