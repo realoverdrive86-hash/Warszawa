@@ -27,7 +27,7 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Inject Styled GIF Splash & Fix Pin Colors
+    - name: Inject GIF Splash, Pin Colors & Privacy Policy Link
       run: |
         if [ -f "splash.gif" ]; then
           cp splash.gif www/splash.gif
@@ -42,9 +42,11 @@ jobs:
         with open("www/index.html", "r", encoding="utf-8") as f:
             html = f.read()
 
+        # 1. Фиксируем белые маркеры и кнопки зума
         pin_css = "<style>.pin, .leaflet-control-zoom a { background: #ffffff !important; background-color: #ffffff !important; color: #121a27 !important; forced-color-adjust: none !important; }</style>\n"
         html = html.replace("</head>", pin_css + "</head>", 1)
 
+        # 2. Вставляем анимированный GIF в белом круге при запуске
         if os.path.exists("www/splash.gif"):
             splash_block = """
         <div id="custom-gif-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s ease;">
@@ -67,6 +69,12 @@ jobs:
                 end_body_tag = html.find(">", idx)
                 if end_body_tag != -1:
                     html = html[:end_body_tag+1] + "\n" + splash_block + html[end_body_tag+1:]
+
+        # 3. Встраиваем аккуратную кнопку Privacy Policy в нижний левый угол экрана
+        privacy_link = """
+        <a href="https://github.io" target="_blank" rel="noopener noreferrer" style="position:fixed;bottom:6px;left:6px;z-index:9999;font-size:10px;color:#ffffff;background:rgba(31,26,31,0.8);padding:3px 7px;border-radius:4px;text-decoration:none;font-family:sans-serif;border:1px solid rgba(255,255,255,0.2);">Privacy Policy</a>
+        """
+        html = html.replace("</body>", privacy_link + "\n</body>", 1)
 
         with open("www/index.html", "w", encoding="utf-8") as f:
             f.write(html)
