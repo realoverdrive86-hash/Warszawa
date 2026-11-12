@@ -1,4 +1,4 @@
-name: Build Signed Release APK & AAB
+name: Build Clean AAB & Styled APK
 on:
   push:
     branches: [ main, master ]
@@ -15,7 +15,7 @@ jobs:
       with: { distribution: 'zulu', java-version: '17' }
     - run: npm install
 
-    - name: Inject Splash, Pins, Privacy & Suppi Link
+    - name: Inject Splash, Pins & Privacy Link (Clean AAB)
       run: |
         [ -f "splash.gif" ] && cp splash.gif www/splash.gif
         python3 -c '
@@ -27,8 +27,9 @@ jobs:
         css = """
         <style>
         .pin,.leaflet-control-zoom a{background:#fff!important;color:#121a27!important;forced-color-adjust:none!important}
-        .priv-in-map{pointer-events:auto!important;margin:0 0 8px 8px!important;display:inline-block!important;font-size:10px!important;color:#fff!important;background:rgba(31,26,31,0.92)!important;padding:5px 9px!important;border-radius:8px!important;border:1px solid rgba(255,255,255,0.25)!important;text-decoration:none!important;font-family:sans-serif!important;box-shadow:0 2px 6px rgba(0,0,0,0.4)!important}
-        .coffee-in-map{pointer-events:auto!important;margin:0 8px 6px 0!important;display:inline-flex!important;align-items:center!important;gap:4px!important;font-size:11px!important;font-weight:700!important;color:#1f1a1f!important;background:linear-gradient(135deg,#ffe259,#ffa751)!important;padding:5px 11px!important;border-radius:16px!important;border:1px solid rgba(255,255,255,0.5)!important;text-decoration:none!important;font-family:sans-serif!important;box-shadow:0 2px 8px rgba(0,0,0,0.45)!important;white-space:nowrap!important}
+        .map-badge-btn{pointer-events:auto!important;display:inline-block!important;font-size:10px!important;color:#fff!important;background:rgba(31,26,31,0.92)!important;padding:5px 9px!important;border-radius:8px!important;border:1px solid rgba(255,255,255,0.25)!important;text-decoration:none!important;font-family:sans-serif!important;box-shadow:0 2px 6px rgba(0,0,0,0.4)!important;white-space:nowrap!important}
+        .priv-pos{margin:0 0 8px 8px!important}
+        .coffee-pos{margin:0 8px 6px 0!important}
         </style>
         """
         html = css + "\n" + html
@@ -40,35 +41,21 @@ jobs:
                 end = html.find(">", idx)
                 html = html[:end+1] + "\n" + sp + html[end+1:]
         
-        controls = """
+        priv_script = """
         <script>
         (function(){
-          var dict = {
-            RU: { priv: "Политика конфиденциальности", cof: "☕ Угостить кофе" },
-            PL: { priv: "Polityka prywatności", cof: "☕ Postaw kawę" },
-            EN: { priv: "Privacy Policy", cof: "☕ Buy a coffee" }
-          };
+          var dict = { RU: "Политика конфиденциальности", PL: "Polityka prywatności", EN: "Privacy Policy" };
           var cur = "RU";
           function mount() {
             var leftCorner = document.querySelector(".leaflet-bottom.leaflet-left");
             if (leftCorner && !document.getElementById("dyn-privacy-link")) {
               var a = document.createElement("a");
               a.id = "dyn-privacy-link";
-              a.className = "leaflet-control priv-in-map";
-              a.href = "https://realoverdrive86-hash.github.io/Warszawa/privacy.html";
+              a.className = "leaflet-control map-badge-btn priv-pos";
+              a.href = "https://github.io";
               a.target = "_blank";
-              a.textContent = dict[cur].priv;
+              a.textContent = dict[cur];
               leftCorner.appendChild(a);
-            }
-            var rightCorner = document.querySelector(".leaflet-bottom.leaflet-right");
-            if (rightCorner && !document.getElementById("dyn-coffee-link")) {
-              var c = document.createElement("a");
-              c.id = "dyn-coffee-link";
-              c.className = "leaflet-control coffee-in-map";
-              c.href = "https://suppi.pl";
-              c.target = "_blank";
-              c.textContent = dict[cur].cof;
-              rightCorner.insertBefore(c, rightCorner.firstChild);
             }
           }
           document.addEventListener("click", function(e) {
@@ -76,9 +63,7 @@ jobs:
             if (t === "RU" || t === "PL" || t === "EN") {
               cur = t;
               var elP = document.getElementById("dyn-privacy-link");
-              var elC = document.getElementById("dyn-coffee-link");
-              if (elP) elP.textContent = dict[cur].priv;
-              if (elC) elC.textContent = dict[cur].cof;
+              if (elP) elP.textContent = dict[cur];
             }
           }, true);
           setInterval(mount, 500);
@@ -87,9 +72,9 @@ jobs:
         """
         if "</body>" in html.lower():
             idx = html.lower().rfind("</body>")
-            html = html[:idx] + "\n" + controls + "\n" + html[idx:]
+            html = html[:idx] + "\n" + priv_script + "\n" + html[idx:]
         else:
-            html += "\n" + controls
+            html += "\n" + priv_script
 
         with open("www/index.html", "w", encoding="utf-8") as f: f.write(html)
         '
@@ -97,7 +82,7 @@ jobs:
     - run: npx cap add android
     - name: Set Version & Dark Mode
       run: |
-        sed -i 's/versionCode 1/versionCode 16/g; s/versionName "1.0"/versionName "2.5"/g' android/app/build.gradle
+        sed -i 's/versionCode 1/versionCode 17/g; s/versionName "1.0"/versionName "2.6"/g' android/app/build.gradle
         sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' android/app/src/main/res/values/styles.xml
         python3 -c '
         import glob
@@ -130,10 +115,56 @@ jobs:
                 Image.new("RGBA", (w, h), (31, 26, 31, 255)).save(tp, "PNG")
         '
 
-    - name: Build Signed Release APK & AAB
+    - name: Build Clean Google Play AAB
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.keystore
-        cd android && ./gradlew clean && ./gradlew assembleRelease bundleRelease \
+        cd android && ./gradlew clean && ./gradlew bundleRelease \
+          -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" \
+          -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
+          -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
+          -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+
+    - name: Inject Styled Coffee Button & Build APK
+      run: |
+        python3 -c '
+        with open("www/index.html", "r", encoding="utf-8") as f: html = f.read()
+        coffee_script = """
+        <script>
+        (function(){
+          var dict = { RU: "☕ Угостить кофе", PL: "☕ Postaw kawę", EN: "☕ Buy a coffee" };
+          var cur = "RU";
+          function mountCoffee() {
+            var rightCorner = document.querySelector(".leaflet-bottom.leaflet-right");
+            if (rightCorner && !document.getElementById("dyn-coffee-link")) {
+              var c = document.createElement("a");
+              c.id = "dyn-coffee-link";
+              c.className = "leaflet-control map-badge-btn coffee-pos";
+              c.href = "https://suppi.pl/warsawwithkids";
+              c.target = "_blank";
+              c.textContent = dict[cur];
+              rightCorner.insertBefore(c, rightCorner.firstChild);
+            }
+          }
+          document.addEventListener("click", function(e) {
+            var t = ((e.target && e.target.innerText) || "").trim().toUpperCase();
+            if (t === "RU" || t === "PL" || t === "EN") {
+              cur = t;
+              var elC = document.getElementById("dyn-coffee-link");
+              if (elC) elC.textContent = dict[cur];
+            }
+          }, true);
+          setInterval(mountCoffee, 500);
+        })();
+        </script>
+        """
+        if "</body>" in html.lower():
+            idx = html.lower().rfind("</body>")
+            html = html[:idx] + "\n" + coffee_script + "\n" + html[idx:]
+        else:
+            html += "\n" + coffee_script
+        with open("www/index.html", "w", encoding="utf-8") as f: f.write(html)
+        '
+        cd android && ./gradlew assembleRelease \
           -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" \
           -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
           -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
