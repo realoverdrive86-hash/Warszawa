@@ -52,7 +52,7 @@ jobs:
               var a = document.createElement("a");
               a.id = "dyn-privacy-link";
               a.className = "leaflet-control map-badge-btn priv-pos";
-              a.href = "https://github.io";
+              a.href = "https://realoverdrive86-hash.github.io/Warszawa/privacy.html";
               a.target = "_blank";
               a.textContent = dict[cur];
               leftCorner.appendChild(a);
