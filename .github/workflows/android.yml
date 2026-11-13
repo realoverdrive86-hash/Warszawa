@@ -34,7 +34,7 @@ jobs:
     - run: npx cap add android
     - name: Set Version & Dark Mode
       run: |
-        sed -i 's/versionCode 1/versionCode 21/g; s/versionName "1.0"/versionName "3.0"/g' android/app/build.gradle
+        sed -i 's/versionCode 1/versionCode 22/g; s/versionName "1.0"/versionName "3.1"/g' android/app/build.gradle
         sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' android/app/src/main/res/values/styles.xml
         python3 -c '
         import glob
@@ -64,13 +64,7 @@ jobs:
     - name: Build Clean AAB
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.keystore
-        npx cap build android \
-          --androidreleasetype AAB \
-          --keystorepath "$GITHUB_WORKSPACE/android/app/release-key.keystore" \
-          --keystorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-          --keystorealias "${{ secrets.KEY_ALIAS }}" \
-          --keystorealiaspass "${{ secrets.KEY_PASSWORD }}" \
-          --signing-type jarsigner
+        cd android && ./gradlew clean bundleRelease -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
 
     - name: Inject Coffee & Build Styled APK
       run: |
@@ -79,14 +73,10 @@ jobs:
         open("www/index.html", "a", encoding="utf-8").write("\n" + cs)
         '
         npx cap copy android
-        cd android && ./gradlew :app:assembleRelease \
-          -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" \
-          -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
-          -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
-          -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+        cd android && ./gradlew assembleRelease -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
 
     - uses: actions/upload-artifact@v4
-      with: { name: Finished-Release-APK, path: android/app/build/outputs/apk/release/app-release.apk }
+      with: { name: Finished-Release-APK, path: android/app/build/outputs/apk/release/*.apk }
     - uses: actions/upload-artifact@v4
-      with: { name: Finished-Release-AAB, path: android/app/build/outputs/bundle/release/app-release-signed.aab }
+      with: { name: Finished-Release-AAB, path: android/app/build/outputs/bundle/release/*.aab }
       
