@@ -15,87 +15,34 @@ jobs:
       with: { distribution: 'zulu', java-version: '17' }
     - run: npm install
 
-    - name: Inject Splash, Pins & Privacy Link (Clean AAB)
+    - name: Inject Splash, Pins & Privacy (AAB)
       run: |
         [ -f "splash.gif" ] && cp splash.gif www/splash.gif
         python3 -c '
         import os
-        with open("www/index.html", "r", encoding="utf-8") as f: html = f.read()
-        html = html.replace("https://github.com", "https://github.io")
-        html = html.replace("https://github.com", "https://github.io")
-        
-        css = """
-        <style>
-        .pin,.leaflet-control-zoom a{background:#fff!important;color:#121a27!important;forced-color-adjust:none!important}
-        .badges-row{pointer-events:auto!important;margin:0 0 8px 8px!important;display:flex!important;flex-wrap:wrap!important;gap:6px!important;align-items:center!important}
-        .map-badge-btn{pointer-events:auto!important;display:inline-block!important;font-size:10px!important;color:#fff!important;background:rgba(31,26,31,0.92)!important;padding:5px 9px!important;border-radius:8px!important;border:1px solid rgba(255,255,255,0.25)!important;text-decoration:none!important;font-family:sans-serif!important;box-shadow:0 2px 6px rgba(0,0,0,0.4)!important;white-space:nowrap!important}
-        </style>
-        """
-        html = css + "\n" + html
-
+        h = open("www/index.html", encoding="utf-8").read().replace("https://github.com", "https://github.io").replace("https://github.com", "https://github.io")
+        css = "<style>.pin,.leaflet-control-zoom a{background:#fff!important;color:#121a27!important;forced-color-adjust:none!important}.badges-col{pointer-events:auto!important;margin:0 0 8px 8px!important;display:flex!important;flex-direction:column!important;gap:6px!important;align-items:flex-start!important}.map-badge-btn{pointer-events:auto!important;display:inline-block!important;font-size:10px!important;color:#fff!important;background:rgba(31,26,31,0.92)!important;padding:5px 10px!important;border-radius:8px!important;border:1px solid rgba(255,255,255,0.22)!important;text-decoration:none!important;font-family:sans-serif!important;box-shadow:0 2px 6px rgba(0,0,0,0.4)!important;white-space:nowrap!important}.coffee-hi{font-size:11px!important;font-weight:600!important;padding:6px 12px!important;border:1px solid rgba(255,255,255,0.55)!important;box-shadow:0 4px 12px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.15)!important;letter-spacing:0.2px!important}</style>\n"
+        h = css + h
         if os.path.exists("www/splash.gif"):
             sp = """<div id="custom-gif-splash" style="position:fixed;inset:0;z-index:999999;background:#1f1a1f;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s"><div style="width:240px;height:240px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden"><img src="splash.gif" style="width:200px;height:200px;object-fit:contain"/></div></div><script>setTimeout(function(){var s=document.getElementById("custom-gif-splash");if(s){s.style.opacity="0";setTimeout(function(){s.remove()},500)}},2500)</script>"""
-            idx = html.lower().find("<body")
-            if idx != -1:
-                end = html.find(">", idx)
-                html = html[:end+1] + "\n" + sp + html[end+1:]
-        
-        priv_script = """
-        <script>
-        (function(){
-          var dict = { RU: "Политика конфиденциальности", PL: "Polityka prywatności", EN: "Privacy Policy" };
-          var cur = "RU";
-          function mount() {
-            var leftCorner = document.querySelector(".leaflet-bottom.leaflet-left");
-            if (leftCorner && !document.getElementById("dyn-badges-row")) {
-              var row = document.createElement("div");
-              row.id = "dyn-badges-row";
-              row.className = "leaflet-control badges-row";
-              var a = document.createElement("a");
-              a.id = "dyn-privacy-link";
-              a.className = "map-badge-btn";
-              a.href = "https://realoverdrive86-hash.github.io/Warszawa/privacy.html";
-              a.target = "_blank";
-              a.textContent = dict[cur];
-              row.appendChild(a);
-              leftCorner.appendChild(row);
-            }
-          }
-          document.addEventListener("click", function(e) {
-            var t = ((e.target && e.target.innerText) || "").trim().toUpperCase();
-            if (t === "RU" || t === "PL" || t === "EN") {
-              cur = t;
-              var elP = document.getElementById("dyn-privacy-link");
-              if (elP) elP.textContent = dict[cur];
-            }
-          }, true);
-          setInterval(mount, 400);
-        })();
-        </script>
-        """
-        if "</body>" in html.lower():
-            idx = html.lower().rfind("</body>")
-            html = html[:idx] + "\n" + priv_script + "\n" + html[idx:]
-        else:
-            html += "\n" + priv_script
-
-        with open("www/index.html", "w", encoding="utf-8") as f: f.write(html)
+            i = h.lower().find("<body")
+            if i != -1: e = h.find(">", i); h = h[:e+1] + "\n" + sp + h[e+1:]
+        ps = """<script>(function(){var d={RU:"Политика конфиденциальности",PL:"Polityka prywatności",EN:"Privacy Policy"},c="RU";function m(){var l=document.querySelector(".leaflet-bottom.leaflet-left");if(l&&!document.getElementById("dyn-badges-col")){var col=document.createElement("div");col.id="dyn-badges-col";col.className="leaflet-control badges-col";var a=document.createElement("a");a.id="dyn-privacy-link";a.className="map-badge-btn";a.href="https://https://realoverdrive86-hash.github.io/Warszawa/privacy.html";a.target="_blank";a.textContent=d[c];col.appendChild(a);l.appendChild(col);}}document.addEventListener("click",function(e){var t=((e.target&&e.target.innerText)||"").trim().toUpperCase();if(d[t]){c=t;var p=document.getElementById("dyn-privacy-link");if(p)p.textContent=d[c];}},true);setInterval(m,400);})();</script>"""
+        open("www/index.html", "w", encoding="utf-8").write(h + "\n" + ps)
         '
 
     - run: npx cap add android
     - name: Set Version & Dark Mode
       run: |
-        sed -i 's/versionCode 1/versionCode 18/g; s/versionName "1.0"/versionName "2.7"/g' android/app/build.gradle
+        sed -i 's/versionCode 1/versionCode 19/g; s/versionName "1.0"/versionName "2.8"/g' android/app/build.gradle
         sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' android/app/src/main/res/values/styles.xml
         python3 -c '
         import glob
-        g = open("android/app/build.gradle").read().replace("dependencies {", "dependencies {\n    implementation \"androidx.webkit:webkit:1.12.1\"", 1)
-        open("android/app/build.gradle", "w").write(g)
+        open("android/app/build.gradle", "w").write(open("android/app/build.gradle").read().replace("dependencies {", "dependencies {\n    implementation \"androidx.webkit:webkit:1.12.1\"", 1))
         for t in glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True):
             c = open(t).read().replace("public class MainActivity", "import android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\nimport androidx.webkit.WebSettingsCompat;\nimport androidx.webkit.WebViewFeature;\npublic class MainActivity")
             oc = "\n@Override public void onCreate(Bundle s){AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);super.onCreate(s);if(this.bridge!=null&&this.bridge.getWebView()!=null&&WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING))WebSettingsCompat.setAlgorithmicDarkeningAllowed(this.bridge.getWebView().getSettings(),false);}\n"
-            i = c.find("{", c.find("public class MainActivity"))
-            open(t, "w").write(c[:i+1] + oc + c[i+1:])
+            i = c.find("{", c.find("public class MainActivity")); open(t, "w").write(c[:i+1] + oc + c[i+1:])
         '
 
     - name: Apply Icon & Splash
@@ -105,74 +52,25 @@ jobs:
         import os, shutil
         from PIL import Image, ImageOps
         src = next((os.path.join(r, f) for r, d, fs in os.walk(".") if not any(x in r for x in ("node_modules","android",".git",".github","www")) for f in fs if f.lower().endswith((".png",".jpg",".jpeg",".webp"))), None)
-        raw = Image.open(src).convert("RGBA")
-        img = ImageOps.fit(raw, (min(raw.size), min(raw.size)), Image.Resampling.LANCZOS)
-        res = "android/app/src/main/res"
-        shutil.rmtree(f"{res}/mipmap-anydpi-v26", ignore_errors=True)
+        raw = Image.open(src).convert("RGBA"); img = ImageOps.fit(raw, (min(raw.size), min(raw.size)), Image.Resampling.LANCZOS)
+        res = "android/app/src/main/res"; shutil.rmtree(f"{res}/mipmap-anydpi-v26", ignore_errors=True)
         for k, px in {"mdpi":48,"hdpi":72,"xhdpi":96,"xxhdpi":144,"xxxhdpi":192}.items():
             p = f"{res}/mipmap-{k}"; os.makedirs(p, exist_ok=True); r = img.resize((px,px), Image.Resampling.LANCZOS)
             for n in ("ic_launcher.png","ic_launcher_round.png","ic_launcher_foreground.png"): r.save(f"{p}/{n}", "PNG")
         for r, d, fs in os.walk(res):
-            if "splash.png" in fs:
-                tp = os.path.join(r, "splash.png"); w, h = Image.open(tp).size
-                Image.new("RGBA", (w, h), (31, 26, 31, 255)).save(tp, "PNG")
+            if "splash.png" in fs: tp = os.path.join(r, "splash.png"); w, h = Image.open(tp).size; Image.new("RGBA", (w, h), (31, 26, 31, 255)).save(tp, "PNG")
         '
 
-    - name: Build Clean Google Play AAB
+    - name: Build Clean AAB & Styled APK
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.keystore
-        cd android && ./gradlew clean && ./gradlew bundleRelease \
-          -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" \
-          -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
-          -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
-          -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
-
-    - name: Inject Styled Coffee Button & Build APK
-      run: |
+        cd android && ./gradlew clean && ./gradlew bundleRelease -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}" && cd ..
         python3 -c '
-        with open("www/index.html", "r", encoding="utf-8") as f: html = f.read()
-        coffee_script = """
-        <script>
-        (function(){
-          var dict = { RU: "☕ Угостить кофе", PL: "☕ Postaw kawę", EN: "☕ Buy a coffee" };
-          var cur = "RU";
-          function mountCoffee() {
-            var row = document.getElementById("dyn-badges-row");
-            if (row && !document.getElementById("dyn-coffee-link")) {
-              var c = document.createElement("a");
-              c.id = "dyn-coffee-link";
-              c.className = "map-badge-btn";
-              c.href = "https://suppi.pl/warsawwithkids";
-              c.target = "_blank";
-              c.textContent = dict[cur];
-              row.appendChild(c);
-            }
-          }
-          document.addEventListener("click", function(e) {
-            var t = ((e.target && e.target.innerText) || "").trim().toUpperCase();
-            if (t === "RU" || t === "PL" || t === "EN") {
-              cur = t;
-              var elC = document.getElementById("dyn-coffee-link");
-              if (elC) elC.textContent = dict[cur];
-            }
-          }, true);
-          setInterval(mountCoffee, 400);
-        })();
-        </script>
-        """
-        if "</body>" in html.lower():
-            idx = html.lower().rfind("</body>")
-            html = html[:idx] + "\n" + coffee_script + "\n" + html[idx:]
-        else:
-            html += "\n" + coffee_script
-        with open("www/index.html", "w", encoding="utf-8") as f: f.write(html)
+        cs = """<script>(function(){var d={RU:"☕ Угостить кофе",PL:"☕ Postaw kawę",EN:"☕ Buy a coffee"},c="RU";function mc(){var col=document.getElementById("dyn-badges-col"),p=document.getElementById("dyn-privacy-link");if(col&&!document.getElementById("dyn-coffee-link")){var a=document.createElement("a");a.id="dyn-coffee-link";a.className="map-badge-btn coffee-hi";a.href="https://suppi.pl";a.target="_blank";a.textContent=d[c];col.insertBefore(a,p);}}document.addEventListener("click",function(e){var t=((e.target&&e.target.innerText)||"").trim().toUpperCase();if(d[t]){c=t;var el=document.getElementById("dyn-coffee-link");if(el)el.textContent=d[c];}},true);setInterval(mc,400);})();</script>"""
+        open("www/index.html", "a", encoding="utf-8").write("\n" + cs)
         '
         npx cap copy android
-        cd android && ./gradlew assembleRelease \
-          -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" \
-          -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
-          -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
-          -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+        cd android && ./gradlew assembleRelease -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
 
     - uses: actions/upload-artifact@v4
       with: { name: Finished-Release-APK, path: android/app/build/outputs/apk/release/app-release.apk }
