@@ -32,13 +32,29 @@ jobs:
         '
 
     - run: npx cap add android
-    - name: Set Version & Dark Mode
+    - name: Configure Gradle, Version & Dark Mode
       run: |
-        sed -i 's/versionCode 1/versionCode 22/g; s/versionName "1.0"/versionName "3.1"/g' android/app/build.gradle
+        sed -i 's/versionCode 1/versionCode 23/g; s/versionName "1.0"/versionName "3.2"/g' android/app/build.gradle
         sed -i 's/<\/style>/    <item name="android:forceDarkAllowed">false<\/item>\n    <\/style>/g' android/app/src/main/res/values/styles.xml
         python3 -c '
         import glob
-        open("android/app/build.gradle", "w").write(open("android/app/build.gradle").read().replace("dependencies {", "dependencies {\n    implementation \"androidx.webkit:webkit:1.12.1\"", 1))
+        g = open("android/app/build.gradle").read()
+        g = g.replace("dependencies {", "dependencies {\n    implementation \"androidx.webkit:webkit:1.12.1\"", 1)
+        sign_cfg = """
+        signingConfigs {
+            release {
+                storeFile file("release-key.keystore")
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+        buildTypes {
+            release {
+                signingConfig signingConfigs.release
+        """
+        g = g.replace("buildTypes {\n        release {", sign_cfg, 1)
+        open("android/app/build.gradle", "w").write(g)
         for t in glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True):
             c = open(t).read().replace("public class MainActivity", "import android.os.Bundle;\nimport androidx.appcompat.app.AppCompatDelegate;\nimport androidx.webkit.WebSettingsCompat;\nimport androidx.webkit.WebViewFeature;\npublic class MainActivity")
             oc = "\n@Override public void onCreate(Bundle s){AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);super.onCreate(s);if(this.bridge!=null&&this.bridge.getWebView()!=null&&WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING))WebSettingsCompat.setAlgorithmicDarkeningAllowed(this.bridge.getWebView().getSettings(),false);}\n"
@@ -62,18 +78,26 @@ jobs:
         '
 
     - name: Build Clean AAB
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release-key.keystore
-        cd android && ./gradlew clean bundleRelease -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+        cd android && ./gradlew clean :app:bundleRelease
 
     - name: Inject Coffee & Build Styled APK
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
         python3 -c '
         cs = """<script>(function(){var d={RU:"☕ Угостить кофе",PL:"☕ Postaw kawę",EN:"☕ Buy a coffee"},c="RU";function mc(){var col=document.getElementById("dyn-badges-col"),p=document.getElementById("dyn-privacy-link");if(col&&!document.getElementById("dyn-coffee-link")){var a=document.createElement("a");a.id="dyn-coffee-link";a.className="map-badge-btn coffee-hi";a.href="https://suppi.pl/warsawwithkids";a.target="_blank";a.textContent=d[c];col.insertBefore(a,p);}}document.addEventListener("click",function(e){var t=((e.target&&e.target.innerText)||"").trim().toUpperCase();if(d[t]){c=t;var el=document.getElementById("dyn-coffee-link");if(el)el.textContent=d[c];}},true);setInterval(mc,400);})();</script>"""
         open("www/index.html", "a", encoding="utf-8").write("\n" + cs)
         '
         npx cap copy android
-        cd android && ./gradlew assembleRelease -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/release-key.keystore" -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+        cd android && ./gradlew :app:assembleRelease
 
     - uses: actions/upload-artifact@v4
       with: { name: Finished-Release-APK, path: android/app/build/outputs/apk/release/*.apk }
